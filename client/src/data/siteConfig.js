@@ -1,3 +1,4 @@
+import { makeImage } from "./images";
 // Business details and navigation, kept in one place.
 // ALL contact details below are FAKE PLACEHOLDERS. The owner will edit them
 // from the admin panel once the backend exists.
@@ -16,7 +17,13 @@ export const siteConfig = {
     address: "12 Sample Street, Ikeja, Lagos, Nigeria", // generic placeholder
   },
 
-  quoteCtaLabel: "Request a Personalised Quote",
+  quoteCtaLabel: "Request a Personalized Quote",
+
+  // Photo for the About section. Replace with a real photo of the owner at work.
+  aboutImage: makeImage(
+    "about-artisan.jpg",
+    "Craftsperson shaping and finishing a surface by hand in a workshop"
+  ),
 };
 
 // Main navigation. "About" is a section on the home page, so it is not listed here.
