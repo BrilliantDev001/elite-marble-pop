@@ -122,3 +122,15 @@ export function getCategoriesByService(service) {
 export function getCategoryBySlug(slug) {
   return categories.find((c) => c.slug === slug);
 }
+
+// Builds a shareable gallery link.
+// Usage: getGalleryLink({ service: "marble", category: "kitchen-countertops" })
+//   -> "/gallery?service=marble&category=kitchen-countertops"
+// Leave a value out to skip it. With no values it returns "/gallery".
+export function getGalleryLink({ service = "", category = "" } = {}) {
+  const params = new URLSearchParams();
+  if (service) params.set("service", service);
+  if (category) params.set("category", category);
+  const query = params.toString();
+  return query ? `/gallery?${query}` : "/gallery";
+}
