@@ -1,4 +1,3 @@
-
 @import "tailwindcss";
 
 /* 
@@ -93,5 +92,68 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* ------------------------------------------------------------------
+   Buttons
+   btn-primary       gold fill: main calls to action (use sparingly)
+   btn-outline       dark outline: secondary action on light backgrounds
+   btn-outline-light ivory outline: secondary action on dark backgrounds
+   btn-sm            add alongside any of these for a smaller button
+------------------------------------------------------------------- */
+@layer components {
+  .btn-primary,
+  .btn-outline,
+  .btn-outline-light {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.9rem 1.75rem;
+    border: 1px solid transparent;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    text-align: center;
+    cursor: pointer;
+    transition:
+      background-color 0.2s ease,
+      color 0.2s ease,
+      border-color 0.2s ease;
+  }
+
+  .btn-sm {
+    padding: 0.6rem 1.1rem;
+  }
+
+  .btn-primary {
+    background-color: var(--color-gold);
+    border-color: var(--color-gold);
+    color: var(--color-obsidian);
+  }
+  .btn-primary:hover {
+    background-color: color-mix(in srgb, var(--color-gold) 82%, black);
+    border-color: color-mix(in srgb, var(--color-gold) 82%, black);
+  }
+
+  .btn-outline {
+    border-color: var(--color-obsidian);
+    color: var(--color-obsidian);
+  }
+  .btn-outline:hover {
+    background-color: var(--color-obsidian);
+    color: var(--color-ivory);
+  }
+
+  .btn-outline-light {
+    border-color: color-mix(in srgb, var(--color-ivory) 60%, transparent);
+    color: var(--color-ivory);
+  }
+  .btn-outline-light:hover {
+    background-color: var(--color-ivory);
+    border-color: var(--color-ivory);
+    color: var(--color-obsidian);
   }
 }
