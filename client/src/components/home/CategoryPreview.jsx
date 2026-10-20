@@ -13,6 +13,8 @@ import { getCategoriesByService, getGalleryLink } from "../../data/categories";
 export default function CategoryPreview({
   service: serviceSlug,
   tone = "light",
+  title,
+  description,
 }) {
   const service = getServiceBySlug(serviceSlug);
   const categories = getCategoriesByService(serviceSlug);
@@ -33,8 +35,8 @@ export default function CategoryPreview({
         <div className="flex flex-col gap-8 md:flex-row md:items-end md:justify-between">
           <SectionHeading
             eyebrow={service.name}
-            title={service.tagline}
-            description={service.intro}
+            title={title ?? service.tagline}
+            description={description ?? service.intro}
             tone={isDark ? "light" : "dark"}
           />
           <Link

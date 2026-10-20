@@ -1,5 +1,5 @@
-import PageStub from "../components/shared/PageStub";
+import ServicePage from "../components/services/ServicePage";
 
 export default function POP() {
-  return <PageStub title="POP Works" />;
+  return <ServicePage serviceSlug="pop" tone="dark" />;
 }

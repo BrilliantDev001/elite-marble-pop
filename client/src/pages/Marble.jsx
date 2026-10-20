@@ -1,5 +1,5 @@
-import PageStub from "../components/shared/PageStub";
+import ServicePage from "../components/services/ServicePage";
 
 export default function Marble() {
-  return <PageStub title="Marble Works" />;
+  return <ServicePage serviceSlug="marble" tone="light" />;
 }
