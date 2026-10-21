@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
+import cookieParser from "cookie-parser";
 import rateLimit from "express-rate-limit";
 import { env } from "./config/env.js";
 import routes from "./routes/index.js";
@@ -23,6 +24,8 @@ app.use(cors({ origin: env.clientOrigin, credentials: true }));
 // Read JSON request bodies, but only small ones. Photos never pass through this server
 // (they go straight to ImageKit), so 100 KB is plenty.
 app.use(express.json({ limit: "100kb" }));
+
+app.use(cookieParser());        
 
 // A general limit per visitor address. Stricter limits for login, reviews and
 // enquiries come in later stages.

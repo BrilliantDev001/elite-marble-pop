@@ -1,5 +1,7 @@
 import { Router } from "express";
 import mongoose from "mongoose";
+import { requireSameOrigin } from "../middleware/auth.js";
+import adminAuthRoutes from "./adminAuthRoutes.js";
 
 const router = Router();
 
@@ -12,5 +14,10 @@ router.get("/health", (req, res) => {
     database: databaseConnected ? "connected" : "disconnected",
   });
 });
+
+// ---------- Admin routes (everything under /api/admin) ----------
+// Any POST, PATCH or DELETE must come from our own website (CSRF protection).
+router.use("/admin", requireSameOrigin);
+router.use("/admin/auth", adminAuthRoutes);
 
 export default router;
