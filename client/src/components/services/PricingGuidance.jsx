@@ -43,7 +43,7 @@ export default function PricingGuidance({ service }) {
             ))}
           </ul>
 
-          <Link to="/contact" className="btn-primary mt-10">
+          <Link to={`/contact?service=${service.slug}`} className="btn-primary mt-10">
             {siteConfig.quoteCtaLabel}
           </Link>
         </div>

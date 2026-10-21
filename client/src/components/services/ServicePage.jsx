@@ -65,8 +65,8 @@ export default function ServicePage({ serviceSlug, tone = "light" }) {
               >
                 View {service.shortName} Projects
               </Link>
-              <Link
-                to="/contact"
+                            <Link
+                to={`/contact?service=${serviceSlug}`}
                 className={isDark ? "btn-outline-light" : "btn-outline"}
               >
                 Request a Quote
