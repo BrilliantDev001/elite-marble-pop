@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { CircleAlert, LoaderCircle, Star } from "lucide-react";
-import FormField, { FieldError, inputClass } from "../shared/FormField";
+import FormField, { FieldError } from "../shared/FormField";
+import { inputClass } from "../shared/formStyles";
 import { services } from "../../data/services";
 import { getPublishedProjects } from "../../data/projects";
 

@@ -1,16 +1,55 @@
-# React + Vite
+# ELITE Marble & POP Works Ltd. Website
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Portfolio and lead-generation website. This is not an online shop.
+Status: **frontend prototype**. There is no backend yet.
 
-Currently, two official plugins are available:
+## Run it
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+```bash
+cd client
+npm install
+npm run dev        # development server (usually http://localhost:5173)
+npm run build      # production build
+npm run preview    # serve the production build locally
+npm run lint       # check the code
+```
 
-## React Compiler
+## Where things live (client/src)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- `data/`: ALL sample content and settings
+  - `siteConfig.js`: business name, contact details (placeholders), navigation, `demoMode` banner flag
+  - `services.js`, `categories.js`: Marble and POP services and their categories
+  - `projects.js`: sample projects (replace with real ones); `reviews.js`: one placeholder review
+  - `images.js`: builds image objects `{ src, alt, caption, isPlaceholder }`
+  - `adminMock.js`, `heroSlides.js`: admin mock data and hero slides
+- `components/`: `layout`, `home`, `projects`, `reviews`, `contact`, `services`, `admin`, `shared`
+- `pages/`: one file per route; `hooks/usePageMeta.js` sets page titles and descriptions
+- Placeholder photos: `client/public/placeholders/`
 
-## Expanding the ESLint configuration
+## Routes
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+`/`, `/marble`, `/pop`, `/gallery` (filters via `?service=` and `?category=`),
+`/gallery/:slug`, `/reviews`, `/reviews/write`, `/contact`, `/admin`
+
+## What is mocked (nothing is saved anywhere)
+
+- Quote form and review form: validate, then pretend to send
+- Admin: fake login (any email and password), mock data held in memory, resets on refresh
+- Contact details, sample projects, the one review and all photos are placeholders
+
+## Dev-only helpers (hidden in production builds)
+
+- "Placeholder" badge on placeholder images
+- `?state=loading` or `?state=error` on `/gallery`; `?state=error` on `/contact` and `/reviews/write`
+
+## Before launch
+
+- Replace placeholder photos, projects, contact details and the placeholder review with real content
+- Set `demoMode` to `false` in `data/siteConfig.js`
+- Confirm the final service and category list with the owner
+- Add the final logo (only `components/shared/BrandLogo.jsx` changes)
+
+## Backend (not started)
+
+Express, MongoDB, real authentication and managed image hosting. Starts only after the
+frontend is approved.

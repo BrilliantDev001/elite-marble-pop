@@ -17,7 +17,11 @@ export const siteConfig = {
     address: "12 Sample Street, Ikeja, Lagos, Nigeria", // generic placeholder
   },
 
-  quoteCtaLabel: "Request a Personalized Quote",
+    quoteCtaLabel: "Request a Personalized Quote",
+
+  // While true, a slim banner on every public page says the content is placeholder.
+  // Set to false before launch, once real photos, projects and contact details are in.
+  demoMode: true,
 
   // Photo for the About section. Replace with a real photo of the owner at work.
   aboutImage: makeImage(

@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import Header from "../components/layout/Header";
 import Footer from "../components/layout/Footer";
+import { siteConfig } from "../data/siteConfig";
 
 // Wraps every public page with the header and footer.
 // <Outlet /> is where the current page is displayed.
@@ -28,6 +29,13 @@ export default function MainLayout() {
       >
         Skip to main content
       </a>
+
+      {siteConfig.demoMode && (
+        <p className="bg-gold/25 px-4 py-2 text-center text-xs font-semibold">
+          Preview build: photos, projects, reviews and contact details on this site are
+          placeholders, not real ELITE work.
+        </p>
+      )}
 
       <Header />
 

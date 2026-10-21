@@ -6,7 +6,8 @@ import {
   useParams,
 } from "react-router-dom";
 import { ArrowDown, ArrowUp, Eye, EyeOff } from "lucide-react";
-import FormField, { FieldError, inputClass } from "../shared/FormField";
+import FormField, { FieldError } from "../shared/FormField";
+import { inputClass } from "../shared/formStyles";
 import SiteImage from "../shared/SiteImage";
 import usePageMeta from "../../hooks/usePageMeta";
 import { services, getServiceBySlug } from "../../data/services";

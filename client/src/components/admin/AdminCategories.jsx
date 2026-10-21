@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { Plus } from "lucide-react";
-import FormField, { FieldError, inputClass } from "../shared/FormField";
+import FormField, { FieldError } from "../shared/FormField";
+import { inputClass } from "../shared/formStyles";
 import SiteImage from "../shared/SiteImage";
 import usePageMeta from "../../hooks/usePageMeta";
 import { services, getServiceBySlug } from "../../data/services";

@@ -1,11 +1,5 @@
 import { CircleAlert } from "lucide-react";
-
-// Shared styling for text inputs, textareas and selects.
-export function inputClass(hasError) {
-  return `w-full min-h-12 border bg-white/70 px-4 py-3 text-base ${
-    hasError ? "border-red-800" : "border-obsidian/40"
-  }`;
-}
+import { inputClass } from "./formStyles";
 
 // An error message with an icon, so errors don't rely on colour alone.
 // Use it directly for fields that FormField can't wrap (like checkboxes).
