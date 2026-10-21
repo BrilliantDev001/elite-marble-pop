@@ -3,7 +3,7 @@ import { getServiceBySlug } from "../../data/services";
 
 // Five stars, filled according to the rating.
 // Screen readers get the sentence "5 out of 5 stars" instead of five icons.
-function StarRating({ rating }) {
+export function StarRating({ rating }) {
   return (
     <div
       role="img"

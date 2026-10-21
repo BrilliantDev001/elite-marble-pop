@@ -128,3 +128,13 @@ export const initialAdminSettings = {
   email: siteConfig.contact.email,
   address: siteConfig.contact.address,
 };
+
+// Turns "2026-03-18" into "18 Mar 2026" for the admin screens.
+export function formatDate(isoDate) {
+  return new Date(isoDate).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}

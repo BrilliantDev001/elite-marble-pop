@@ -76,7 +76,7 @@ export default function ServicePage({ serviceSlug, tone = "light" }) {
 
           <SiteImage
             image={service.heroImage}
-            className={`aspect-[4/3] ${isDark ? "lg:order-1" : ""}`}
+            className={`aspect-4/3 ${isDark ? "lg:order-1" : ""}`}
             loading="eager"
             fetchPriority="high"
             sizes="(min-width: 1024px) 50vw, 100vw"
@@ -92,7 +92,7 @@ export default function ServicePage({ serviceSlug, tone = "light" }) {
       />
 
       {/* ---------- Selected projects ---------- */}
-      <section className="bg-obsidian/[0.04] py-20 md:py-28">
+      <section className="`bg-obsidian/0.04` py-20 md:py-28">
         <div className="container-page">
           <div className="flex flex-col gap-8 md:flex-row md:items-end md:justify-between">
             <SectionHeading
