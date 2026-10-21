@@ -44,7 +44,40 @@ export const baseOptions = {
         delete ret._id;
       }
       delete ret.nameKey;
+      delete ret.passwordHash;
+      delete ret.tokenVersion;
       return ret;
     },
   },
 };
+
+// ---------- More shared values (reviews, enquiries, admin) ----------
+
+export const REVIEW_STATUSES = ["pending", "approved", "rejected"];
+export const ENQUIRY_STATUSES = [
+  "New",
+  "Contacted",
+  "In Progress",
+  "Completed",
+  "Closed",
+];
+export const CONTACT_METHODS = ["phone", "whatsapp", "email"];
+export const MAX_ENQUIRY_PHOTOS = 3;
+
+export const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Accepts spaces, dashes and brackets, then checks for 7 to 15 real digits (optional leading +).
+export function isValidPhone(value) {
+  return /^\+?\d{7,15}$/.test(String(value).replace(/[\s\-()]/g, ""));
+}
+
+// A photo uploaded by a visitor (a review photo or an enquiry reference image).
+// Visitors give no alt text, so none is stored. When a review photo is shown publicly,
+// the alt text is generated from the reviewer's name.
+export const uploadedPhotoSchema = new mongoose.Schema(
+  {
+    url: { type: String, required: true, trim: true, maxlength: 2048 },
+    fileId: { type: String, trim: true, default: "" },
+  },
+  { _id: false },
+);
