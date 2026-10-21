@@ -86,7 +86,7 @@ export default function AdminEnquiries() {
         role="status"
         tabIndex={-1}
         className={`mt-6 border-l-2 border-gold pl-4 text-sm focus:outline-none ${
-          message ? "" : "hidden"
+          message ? "" : "sr-only"
         }`}
       >
         {message}

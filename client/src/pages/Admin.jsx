@@ -5,6 +5,10 @@ import AdminLayout from "../components/admin/AdminLayout";
 import AdminOverview from "../components/admin/AdminOverview";
 import AdminReviews from "../components/admin/AdminReviews";
 import AdminEnquiries from "../components/admin/AdminEnquiries";
+import AdminProjects from "../components/admin/AdminProjects";
+import AdminProjectForm from "../components/admin/AdminProjectForm";
+import AdminCategories from "../components/admin/AdminCategories";
+import AdminSettings from "../components/admin/AdminSettings";
 import usePageMeta from "../hooks/usePageMeta";
 
 // TEMPORARY: replaced screen by screen in the next two steps.
@@ -44,20 +48,13 @@ export default function Admin() {
     <Routes>
       <Route element={<AdminLayout onLogout={() => setLoggedIn(false)} />}>
         <Route index element={<AdminOverview />} />
-        <Route
-          path="projects"
-          element={<AdminSectionStub title="Projects" />}
-        />
-        <Route
-          path="categories"
-          element={<AdminSectionStub title="Categories" />}
-        />
+        <Route path="projects" element={<AdminProjects />} />
+        <Route path="projects/new" element={<AdminProjectForm />} />
+        <Route path="projects/:id" element={<AdminProjectForm />} />
+        <Route path="categories" element={<AdminCategories />} />
         <Route path="reviews" element={<AdminReviews />} />
         <Route path="enquiries" element={<AdminEnquiries />} />
-        <Route
-          path="settings"
-          element={<AdminSectionStub title="Settings" />}
-        />
+        <Route path="settings" element={<AdminSettings />} />
         <Route path="*" element={<AdminSectionStub title="Page not found" />} />
       </Route>
     </Routes>
