@@ -7,11 +7,12 @@ import { siteConfig, getPhoneLink, getWhatsAppLink } from "../data/siteConfig";
 export default function Contact() {
   usePageMeta(
     "Contact and Quotations",
-    "Request a personalised quote for marble or POP work from ELITE Marble & POP Works Ltd., or contact us directly."
+    "Request a personalised quote for marble or POP work from ELITE Marble & POP Works Ltd., or contact us directly.",
   );
 
   const { contact } = siteConfig;
-  const linkClass = "inline-flex min-h-11 items-center gap-3 underline-offset-4 hover:underline";
+  const linkClass =
+    "inline-flex min-h-11 items-center gap-3 underline-offset-4 hover:underline";
 
   return (
     <section className="container-page py-14 md:py-20">
