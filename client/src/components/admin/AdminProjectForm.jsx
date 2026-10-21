@@ -731,10 +731,10 @@ function ProjectFormBody({ existing }) {
                       ...photos[0],
                       alt: photos[0].alt || "Preview of the cover photo",
                     }}
-                    className="aspect-[4/3]"
+                    className="aspect-4/3"
                   />
                 ) : (
-                  <div className="flex aspect-[4/3] items-center justify-center bg-stone/20 text-sm">
+                  <div className="flex aspect-4/3 items-center justify-center bg-stone/20 text-sm">
                     No cover photo yet
                   </div>
                 )}

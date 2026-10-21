@@ -24,7 +24,7 @@ function validate({ values, image, categories, existing }) {
   } else if (name.length > 60) {
     errors.name = "The name must be 60 characters or fewer.";
   } else {
-    // Catches near-duplicates: "Kitchen Countertops", "kitchen countertop", "Kitchen  Countertops!"
+    // Catches near-duplicates: "Kitchen Counter-tops", "kitchen counter-top", "Kitchen  Counter-tops!"
     const duplicate = categories.find(
       (category) =>
         category.slug !== existing?.slug &&

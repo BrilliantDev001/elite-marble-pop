@@ -48,7 +48,7 @@ export default function HeroCarousel() {
         if (!event.currentTarget.contains(event.relatedTarget))
           setFocused(false);
       }}
-      className="relative h-[37rem] overflow-hidden bg-obsidian text-ivory sm:h-[34rem] lg:h-[min(36rem,calc(100svh_-_14rem))] lg:min-h-[28rem]"
+      className="relative h-148 overflow-hidden bg-obsidian text-ivory sm:h-136 lg:h-[min(36rem,calc(100svh_-_14rem))] lg:min-h-[28rem]"
     >
       {/* Slide images: stacked on top of each other and cross-faded with opacity */}
       <div aria-live={playing ? "off" : "polite"} className="absolute inset-0">

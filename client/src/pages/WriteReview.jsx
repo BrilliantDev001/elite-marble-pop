@@ -5,7 +5,7 @@ import usePageMeta from "../hooks/usePageMeta";
 export default function WriteReview() {
   usePageMeta(
     "Write a Review",
-    "Share your experience of working with ELITE Marble & POP Works Ltd."
+    "Share your experience of working with ELITE Marble & POP Works Ltd.",
   );
 
   return (

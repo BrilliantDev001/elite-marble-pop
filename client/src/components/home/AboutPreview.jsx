@@ -10,7 +10,7 @@ export default function AboutPreview() {
       <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-20">
         <SiteImage
           image={siteConfig.aboutImage}
-          className="aspect-[4/5] lg:order-2"
+          className="aspect-4/5 lg:order-2"
           sizes="(min-width: 1024px) 50vw, 100vw"
         />
 

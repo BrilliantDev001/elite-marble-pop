@@ -61,7 +61,7 @@ export default function CategoryPreview({
               >
                 <SiteImage
                   image={category.image}
-                  className="aspect-[4/3]"
+                  className="aspect-4/3"
                   sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
                 />
                 <h3 className="mt-5 text-2xl font-medium">{category.name}</h3>

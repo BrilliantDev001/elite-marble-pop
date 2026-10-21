@@ -1,7 +1,7 @@
 import { CircleAlert } from "lucide-react";
 import { inputClass } from "./formStyles";
 
-// An error message with an icon, so errors don't rely on colour alone.
+// An error message with an icon, so errors don't rely on color alone.
 // Use it directly for fields that FormField can't wrap (like checkboxes).
 export function FieldError({ id, children }) {
   return (

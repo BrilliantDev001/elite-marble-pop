@@ -14,7 +14,7 @@ const FILTERS = [
   { value: "archived", label: "Archived" },
 ];
 
-// The status is always written out in words, never shown by colour alone.
+// The status is always written out in words, never shown by color alone.
 function StatusBadge({ status }) {
   const styles = {
     published: "border-obsidian bg-obsidian text-ivory",
