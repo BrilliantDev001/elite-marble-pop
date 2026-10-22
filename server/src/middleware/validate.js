@@ -24,3 +24,25 @@ export function validateBody(schema) {
     next();
   };
 }
+
+
+// Same idea as validateBody, but for the part of the web address after the "?"
+// (for example /api/projects?service=marble&page=2).
+// The cleaned values are placed in res.locals.query. (Express 5 does not let us replace req.query.)
+export function validateQuery(schema) {
+  return (req, res, next) => {
+    const result = schema.safeParse(req.query);
+
+    if (!result.success) {
+      const errors = {};
+      for (const issue of result.error.issues) {
+        const field = issue.path.join(".") || "query";
+        if (!errors[field]) errors[field] = issue.message;
+      }
+      return res.status(400).json({ message: "Some of the filters are not valid.", errors });
+    }
+
+    res.locals.query = result.data;
+    next();
+  };
+}
