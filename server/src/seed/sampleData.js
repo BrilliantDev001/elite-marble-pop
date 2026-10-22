@@ -1,0 +1,298 @@
+// Starting content for the database.
+// Photo addresses point to the frontend's placeholder photos (client/public/placeholders/).
+// The sample projects are DEMO content, not real ELITE work.
+
+const photo = (file, alt, caption = "") => ({
+  url: `/placeholders/${file}`,
+  alt,
+  caption,
+});
+
+const photos = {
+  heroMarble: photo(
+    "hero-marble.jpg",
+    "Polished marble surface with soft grey veining in a bright interior",
+  ),
+  heroPop: photo(
+    "hero-pop.jpg",
+    "Elegant white plaster ceiling with layered recessed design and soft lighting",
+  ),
+  heroInterior: photo(
+    "hero-interior.jpg",
+    "Finished interior with a marble floor and a plaster ceiling",
+  ),
+  marbleKitchen: photo(
+    "marble-kitchen.jpg",
+    "Kitchen island with a polished marble countertop and waterfall edge",
+  ),
+  marbleTomb: photo(
+    "marble-tomb.jpg",
+    "Clean white marble tomb with simple engraved headstone",
+  ),
+  marblePulpit: photo(
+    "marble-pulpit.jpg",
+    "Marble pulpit with a smooth finish inside a place of worship",
+  ),
+  marbleStairs: photo(
+    "marble-stairs.jpg",
+    "Curved staircase with polished marble steps and a matching marble floor",
+  ),
+  marbleFurniture: photo(
+    "marble-furniture.jpg",
+    "Round marble dining table with a polished top",
+  ),
+  popCeiling: photo(
+    "pop-ceiling.jpg",
+    "Smooth white POP ceiling with recessed lighting in a living room",
+  ),
+  popDecorativeCeiling: photo(
+    "pop-decorative-ceiling.jpg",
+    "Decorative layered POP ceiling design with a central medallion",
+  ),
+  popCornice: photo(
+    "pop-cornice.jpg",
+    "Detailed plaster cornice where a white wall meets the ceiling",
+  ),
+  popWallMoulding: photo(
+    "pop-wall-moulding.jpg",
+    "White plaster wall with decorative panel mouldings",
+  ),
+};
+
+// PROPOSED categories from the project brief. The owner confirms or changes them in the admin.
+export const categorySeeds = [
+  {
+    slug: "kitchen-countertops",
+    service: "marble",
+    name: "Kitchen Countertops",
+    description: "Marble worktops and islands cut to fit your kitchen.",
+    image: photos.marbleKitchen,
+  },
+  {
+    slug: "tombs-and-burial-grounds",
+    service: "marble",
+    name: "Tombs & Burial Grounds",
+    description:
+      "Dignified marble tombs and memorial construction, built with care.",
+    image: photos.marbleTomb,
+  },
+  {
+    slug: "pulpits",
+    service: "marble",
+    name: "Pulpits",
+    description: "Marble pulpits and altar work for places of worship.",
+    image: photos.marblePulpit,
+  },
+  {
+    slug: "staircases-and-flooring",
+    service: "marble",
+    name: "Staircases & Flooring",
+    description:
+      "Marble stairs and floors that carry a space from entrance to room.",
+    image: photos.marbleStairs,
+  },
+  {
+    slug: "marble-furniture",
+    service: "marble",
+    name: "Marble Furniture",
+    description: "Tables, desks, chairs and other pieces made from marble.",
+    image: photos.marbleFurniture,
+  },
+  {
+    slug: "pop-ceilings",
+    service: "pop",
+    name: "POP Ceilings",
+    description: "Smooth, well-finished plaster ceilings for any room.",
+    image: photos.popCeiling,
+  },
+  {
+    slug: "decorative-ceilings",
+    service: "pop",
+    name: "Decorative Ceiling Designs",
+    description: "Layered, patterned and sculpted ceiling designs.",
+    image: photos.popDecorativeCeiling,
+  },
+  {
+    slug: "ceiling-mouldings-cornices",
+    service: "pop",
+    name: "Ceiling Mouldings & Cornices",
+    description: "Cornices and mouldings that frame the edges of a ceiling.",
+    image: photos.popCornice,
+  },
+  {
+    slug: "decorative-wall-mouldings",
+    service: "pop",
+    name: "Decorative Wall Mouldings",
+    description: "Panelled and moulded wall details in plaster.",
+    image: photos.popWallMoulding,
+  },
+];
+
+// DEMO projects. Same content as the frontend's sample data, including one DRAFT
+// (it must never appear publicly).
+export const sampleProjectSeeds = [
+  {
+    title: "Marble Kitchen Island",
+    slug: "marble-kitchen-island",
+    service: "marble",
+    category: "kitchen-countertops",
+    description: "A kitchen island with a polished marble top.",
+    details: "Sample project used to test the project page layout.",
+    coverImage: photos.marbleKitchen,
+    images: [
+      { ...photos.heroMarble, caption: "Close view of the surface finish" },
+    ],
+    featured: true,
+    status: "published",
+    createdAt: new Date("2026-03-12"),
+  },
+  {
+    title: "Marble Kitchen Worktop",
+    slug: "marble-kitchen-worktop",
+    service: "marble",
+    category: "kitchen-countertops",
+    coverImage: photos.heroMarble,
+    images: [],
+    featured: false,
+    status: "published",
+    createdAt: new Date("2026-02-20"),
+  },
+  {
+    title: "Marble Memorial Tomb",
+    slug: "marble-memorial-tomb",
+    service: "marble",
+    category: "tombs-and-burial-grounds",
+    description: "A simple, dignified marble tomb.",
+    coverImage: photos.marbleTomb,
+    images: [],
+    featured: false,
+    status: "published",
+    createdAt: new Date("2026-02-05"),
+  },
+  {
+    title: "Marble Pulpit",
+    slug: "marble-pulpit",
+    service: "marble",
+    category: "pulpits",
+    description: "A marble pulpit with a smooth, even finish.",
+    coverImage: photos.marblePulpit,
+    images: [photos.heroMarble],
+    featured: false,
+    status: "published",
+    createdAt: new Date("2026-01-28"),
+  },
+  {
+    title: "Curved Marble Staircase",
+    slug: "curved-marble-staircase",
+    service: "marble",
+    category: "staircases-and-flooring",
+    description: "A curved staircase with matching marble flooring.",
+    details: "Sample project with several photos, used to test the lightbox.",
+    coverImage: photos.marbleStairs,
+    images: [
+      {
+        ...photos.heroInterior,
+        caption: "The staircase within the finished interior",
+      },
+      photos.heroMarble,
+    ],
+    featured: true,
+    status: "published",
+    createdAt: new Date("2026-01-15"),
+  },
+  {
+    title: "Marble Dining Table",
+    slug: "marble-dining-table",
+    service: "marble",
+    category: "marble-furniture",
+    description: "A round dining table with a polished marble top.",
+    coverImage: photos.marbleFurniture,
+    images: [],
+    featured: false,
+    status: "published",
+    createdAt: new Date("2026-01-05"),
+  },
+  {
+    title: "Living Room POP Ceiling",
+    slug: "living-room-pop-ceiling",
+    service: "pop",
+    category: "pop-ceilings",
+    description: "A smooth ceiling with recessed lighting.",
+    coverImage: photos.popCeiling,
+    images: [photos.heroInterior],
+    featured: true,
+    status: "published",
+    createdAt: new Date("2026-03-01"),
+  },
+  {
+    title: "Layered Decorative Ceiling",
+    slug: "layered-decorative-ceiling",
+    service: "pop",
+    category: "decorative-ceilings",
+    description: "A layered ceiling design with a central feature.",
+    coverImage: photos.popDecorativeCeiling,
+    images: [photos.heroPop],
+    featured: true,
+    status: "published",
+    createdAt: new Date("2026-02-14"),
+  },
+  {
+    title: "Detailed Cornice Work",
+    slug: "detailed-cornice-work",
+    service: "pop",
+    category: "ceiling-mouldings-cornices",
+    coverImage: photos.popCornice,
+    images: [],
+    featured: false,
+    status: "published",
+    createdAt: new Date("2026-01-22"),
+  },
+  {
+    title: "Panel Moulded Wall",
+    slug: "panel-moulded-wall",
+    service: "pop",
+    category: "decorative-wall-mouldings",
+    description: "Decorative panel mouldings on a feature wall.",
+    coverImage: photos.popWallMoulding,
+    images: [],
+    featured: false,
+    status: "published",
+    createdAt: new Date("2026-01-10"),
+  },
+  {
+    title: "Guest Room POP Ceiling",
+    slug: "guest-room-pop-ceiling",
+    service: "pop",
+    category: "pop-ceilings",
+    coverImage: photos.heroPop,
+    images: [],
+    featured: false,
+    status: "published",
+    createdAt: new Date("2025-12-18"),
+  },
+  {
+    title: "Marble Entrance Floor",
+    slug: "marble-entrance-floor",
+    service: "marble",
+    category: "staircases-and-flooring",
+    description: "A marble floor for an entrance hall.",
+    coverImage: photos.heroInterior,
+    images: [],
+    featured: false,
+    status: "published",
+    createdAt: new Date("2025-12-05"),
+  },
+  {
+    // A DRAFT, so we can confirm unpublished projects never appear publicly.
+    title: "Draft Project (Should Not Appear)",
+    slug: "draft-project",
+    service: "marble",
+    category: "kitchen-countertops",
+    description: "If you can see this on the public site, something is wrong.",
+    coverImage: photos.heroMarble,
+    images: [],
+    featured: true,
+    status: "draft",
+    createdAt: new Date("2026-03-20"),
+  },
+];

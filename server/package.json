@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "node --watch --env-file-if-exists=.env src/server.js",
     "start": "node src/server.js",
-    "admin:create": "node --env-file=.env src/scripts/createAdmin.js"
+    "admin:create": "node --env-file=.env src/scripts/createAdmin.js",
+    "seed": "node --env-file=.env src/scripts/seed.js"
   },
   "keywords": [],
   "type": "module",

@@ -50,7 +50,10 @@ const projectSchema = new mongoose.Schema(
         message: `A project can have up to ${MAX_PROJECT_IMAGES} photos including the cover.`,
       },
     },
-    featured: { type: Boolean, default: false },
+        featured: { type: Boolean, default: false },
+    // true ONLY for the demo projects made by "npm run seed -- samples". The admin API can never
+    // set it. Demo projects are removed with "npm run seed -- remove-samples" before launch.
+    isSample: { type: Boolean, default: false },
     // Only "published" projects ever appear on the public website.
     status: { type: String, enum: PROJECT_STATUSES, default: "draft" },
   },
