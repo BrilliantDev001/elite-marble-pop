@@ -84,3 +84,18 @@ export async function getSettings(req, res) {
   const settings = await Settings.getSite();
   res.json({ settings: toPublicSettings(settings) });
 }
+
+// GET /api/projects/options
+// A short list of EVERY published project (just slug, title and service), for the project
+// drop-down on the review form. The full list is too heavy to send for that.
+export async function listProjectOptions(req, res) {
+  const projects = await Project.find({ status: "published" })
+    .sort({ title: 1 })
+    .select("slug title service")
+    .limit(500)
+    .lean();
+
+  res.json({
+    items: projects.map((project) => ({ slug: project.slug, title: project.title, service: project.service })),
+  });
+}

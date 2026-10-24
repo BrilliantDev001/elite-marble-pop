@@ -6,6 +6,10 @@ import { filesOf, prepareProjectPhotos, deleteRemovedFiles } from "../utils/phot
 
 // The web address must not be used by another project.
 async function assertSlugFree(slug, ignoreId) {
+  // "options" is used by the public API (/api/projects/options), so no project may take it.
+  if (slug === "options") {
+    throw fieldError(409, "slug", "This web address is reserved. Please choose a different one.");
+  }
   const filter = ignoreId ? { slug, _id: { $ne: ignoreId } } : { slug };
   if (await Project.exists(filter)) {
     throw fieldError(

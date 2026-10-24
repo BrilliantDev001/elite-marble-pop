@@ -4,6 +4,7 @@ import {
   listCategories,
   listProjects,
   getProject,
+  listProjectOptions,
   getSettings,
 } from "../controllers/publicController.js";
 import { validateQuery } from "../middleware/validate.js";
@@ -32,6 +33,8 @@ const projectsQuery = z.object({
 
 router.get("/categories", validateQuery(categoriesQuery), listCategories);
 router.get("/projects", validateQuery(projectsQuery), listProjects);
+// "options" must come BEFORE "/projects/:slug", otherwise it would be read as a project slug.
+router.get("/projects/options", listProjectOptions);
 router.get("/projects/:slug", getProject);
 router.get("/settings", getSettings);
 
