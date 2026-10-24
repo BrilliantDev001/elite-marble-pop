@@ -6,3 +6,13 @@ export function httpError(status, message) {
   error.expose = true;
   return error;
 }
+
+
+// Like httpError, but also says WHICH field is wrong, in the shape the forms expect:
+// { message, errors: { fieldName: "message" } }
+// Usage: throw fieldError(409, "slug", "Another project already uses this web address.");
+export function fieldError(status, field, message) {
+  const error = httpError(status, "Please check the information you entered.");
+  error.fields = { [field]: message };
+  return error;
+}

@@ -11,8 +11,11 @@ export function errorHandler(err, req, res, next) {
   // A database validation problem (rare, because the request checks run first): say which fields.
   if (err.name === "ValidationError" && err.errors) {
     const errors = {};
-    for (const [field, problem] of Object.entries(err.errors)) errors[field] = problem.message;
-    return res.status(400).json({ message: "Please check the information you entered.", errors });
+    for (const [field, problem] of Object.entries(err.errors))
+      errors[field] = problem.message;
+    return res
+      .status(400)
+      .json({ message: "Please check the information you entered.", errors });
   }
 
   // A duplicate value, such as a web address already in use.
@@ -32,5 +35,6 @@ export function errorHandler(err, req, res, next) {
 
   res.status(status).json({
     message: err.expose ? err.message : "The request could not be processed.",
+    ...(err.expose && err.fields ? { errors: err.fields } : {}),
   });
 }

@@ -20,7 +20,9 @@ if (missing.length > 0) {
 }
 
 if (process.env.JWT_SECRET.length < 32) {
-  console.error("JWT_SECRET must be at least 32 characters. Generate one with:");
+  console.error(
+    "JWT_SECRET must be at least 32 characters. Generate one with:",
+  );
   console.error(`node -p "crypto.randomBytes(48).toString('hex')"`);
   process.exit(1);
 }
@@ -32,4 +34,9 @@ export const env = {
   clientOrigin: process.env.CLIENT_ORIGIN ?? "http://localhost:5173",
   mongoUri: process.env.MONGODB_URI,
   jwtSecret: process.env.JWT_SECRET,
+  // The address photos are served from, for example https://ik.imagekit.io/your_id.
+  // Added in Stage B6. While empty, only the /placeholders/ photos are accepted.
+  imagekitUrlEndpoint: (process.env.IMAGEKIT_URL_ENDPOINT ?? "")
+    .trim()
+    .replace(/\/+$/, ""),
 };
