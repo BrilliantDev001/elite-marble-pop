@@ -36,3 +36,10 @@ export function requireSameOrigin(req, res, next) {
   }
   next();
 }
+
+// Admin responses contain private information (customer details), so browsers and proxies
+// must never keep a copy.
+export function noStore(req, res, next) {
+  res.set("Cache-Control", "no-store");
+  next();
+}

@@ -24,3 +24,11 @@ export const wholeNumber = (name, max) =>
       (value) => value >= 1 && value <= max,
       `${name} must be between 1 and ${max}.`,
     );
+
+// One of a fixed list of values. A missing value becomes "", so the friendly message is shown.
+export function oneOf(values, message) {
+  return z.preprocess(
+    blankIfMissing,
+    z.string().refine((value) => values.includes(value), message),
+  );
+}

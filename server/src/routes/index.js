@@ -1,7 +1,9 @@
 import { Router } from "express";
 import mongoose from "mongoose";
-import { requireAdmin, requireSameOrigin } from "../middleware/auth.js";
+import { noStore, requireAdmin, requireSameOrigin } from "../middleware/auth.js";
 import adminProjectRoutes from "./adminProjectRoutes.js";
+import adminReviewRoutes from "./adminReviewRoutes.js";
+import adminEnquiryRoutes from "./adminEnquiryRoutes.js";
 import adminAuthRoutes from "./adminAuthRoutes.js";
 import publicRoutes from "./publicRoutes.js";
 import submissionRoutes from "./submissionRoutes.js";
@@ -24,8 +26,10 @@ router.use(submissionRoutes);
 
 // ---------- Admin routes (everything under /api/admin) ----------
 // Any POST, PATCH or DELETE must come from our own website (CSRF protection).
-router.use("/admin", requireSameOrigin);
+router.use("/admin", noStore, requireSameOrigin);
 router.use("/admin/auth", adminAuthRoutes);
 router.use("/admin/projects", requireAdmin, adminProjectRoutes);
+router.use("/admin/reviews", requireAdmin, adminReviewRoutes);
+router.use("/admin/enquiries", requireAdmin, adminEnquiryRoutes);
 
 export default router;
