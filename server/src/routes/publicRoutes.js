@@ -8,19 +8,9 @@ import {
 } from "../controllers/publicController.js";
 import { validateQuery } from "../middleware/validate.js";
 import { SERVICES, SLUG_PATTERN } from "../models/shared.js";
+import { wholeNumber } from "../validation/common.js";
 
 const router = Router();
-
-// A whole number between 1 and `max`, read from the web address (where everything is text).
-const wholeNumber = (name, max) =>
-  z
-    .string()
-    .regex(/^\d{1,6}$/, `${name} must be a whole number.`)
-    .transform(Number)
-    .refine(
-      (value) => value >= 1 && value <= max,
-      `${name} must be between 1 and ${max}.`,
-    );
 
 // Every filter is optional. Only these exact values are accepted.
 // (A repeated filter like ?service=a&service=b is rejected too.)
