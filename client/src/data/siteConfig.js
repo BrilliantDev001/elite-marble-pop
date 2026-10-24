@@ -17,7 +17,7 @@ export const siteConfig = {
     address: "12 Sample Street, Ikeja, Lagos, Nigeria", // generic placeholder
   },
 
-    quoteCtaLabel: "Request a Personalized Quote",
+  quoteCtaLabel: "Request a Personalized Quote",
 
   // While true, a slim banner on every public page says the content is placeholder.
   // Set to false before launch, once real photos, projects and contact details are in.
@@ -26,7 +26,7 @@ export const siteConfig = {
   // Photo for the About section. Replace with a real photo of the owner at work.
   aboutImage: makeImage(
     "about-artisan.jpg",
-    "Craftsperson shaping and finishing a surface by hand in a workshop"
+    "Craftsperson shaping and finishing a surface by hand in a workshop",
   ),
 };
 
@@ -44,11 +44,12 @@ export const navLinks = [
 // Usage: getWhatsAppLink("Hello ELITE, I'd like a quote for Kitchen Countertops.")
 export function getWhatsAppLink(
   message = "Hello ELITE, I would like to request a quote.",
+  contact = siteConfig.contact,
 ) {
-  return `https://wa.me/${siteConfig.contact.whatsappNumber}?text=${encodeURIComponent(message)}`;
+  return `https://wa.me/${contact.whatsappNumber}?text=${encodeURIComponent(message)}`;
 }
 
 // Builds a phone link: <a href={getPhoneLink()}>
-export function getPhoneLink() {
-  return `tel:${siteConfig.contact.phoneHref}`;
+export function getPhoneLink(contact = siteConfig.contact) {
+  return `tel:${contact.phoneHref}`;
 }
