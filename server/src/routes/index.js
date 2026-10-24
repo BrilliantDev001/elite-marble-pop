@@ -4,6 +4,9 @@ import { noStore, requireAdmin, requireSameOrigin } from "../middleware/auth.js"
 import adminProjectRoutes from "./adminProjectRoutes.js";
 import adminReviewRoutes from "./adminReviewRoutes.js";
 import adminEnquiryRoutes from "./adminEnquiryRoutes.js";
+import adminCategoryRoutes from "./adminCategoryRoutes.js";
+import adminSettingsRoutes from "./adminSettingsRoutes.js";
+import { getOverview } from "../controllers/adminOverviewController.js";
 import adminAuthRoutes from "./adminAuthRoutes.js";
 import publicRoutes from "./publicRoutes.js";
 import submissionRoutes from "./submissionRoutes.js";
@@ -31,5 +34,8 @@ router.use("/admin/auth", adminAuthRoutes);
 router.use("/admin/projects", requireAdmin, adminProjectRoutes);
 router.use("/admin/reviews", requireAdmin, adminReviewRoutes);
 router.use("/admin/enquiries", requireAdmin, adminEnquiryRoutes);
+router.use("/admin/categories", requireAdmin, adminCategoryRoutes);
+router.use("/admin/settings", requireAdmin, adminSettingsRoutes);
+router.get("/admin/overview", requireAdmin, getOverview);
 
 export default router;

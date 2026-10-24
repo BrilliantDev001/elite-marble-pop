@@ -72,7 +72,7 @@ const location = optionalText(
 ).transform((value) => (value === "" ? null : value));
 
 // One photo. The address must be one we control (see utils/imageUrls.js).
-const photoSchema = z.object({
+export const photoSchema = z.object({
   url: z.preprocess(
     blankIfMissing,
     z
