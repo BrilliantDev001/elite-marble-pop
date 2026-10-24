@@ -141,3 +141,34 @@ export async function verifyUpload({ fileId, url, folder }) {
   }
   return { url: canonicalUrl };
 }
+
+// ---------- Listing files (used by the cleanup tool) ----------
+
+// Lists every file directly inside ONE ImageKit folder, fetching page by page.
+// Each item includes fileId, name, filePath, size and createdAt.
+export async function listFiles(folder) {
+  const PAGE_SIZE = 500;
+  const MAX_PAGES = 100; // a safety stop, so a problem can never cause an endless loop
+  const files = [];
+
+  for (let page = 0; page < MAX_PAGES; page += 1) {
+    const query = new URLSearchParams({
+      type: "file",
+      path: folder,
+      limit: String(PAGE_SIZE),
+      skip: String(page * PAGE_SIZE),
+    });
+
+    const response = await callApi(`/files?${query}`);
+    if (!response.ok) {
+      console.error(`ImageKit could not list ${folder} (${response.status}).`);
+      throw httpError(502, "The image service is not responding. Please try again.");
+    }
+
+    const items = await response.json();
+    files.push(...items);
+    if (items.length < PAGE_SIZE) break;
+  }
+
+  return files;
+}
