@@ -39,4 +39,14 @@ export const env = {
   imagekitUrlEndpoint: (process.env.IMAGEKIT_URL_ENDPOINT ?? "")
     .trim()
     .replace(/\/+$/, ""),
+  imagekitPublicKey: (process.env.IMAGEKIT_PUBLIC_KEY ?? "").trim(),
+  imagekitPrivateKey: (process.env.IMAGEKIT_PRIVATE_KEY ?? "").trim(),
 };
+
+// Image uploads only work when ALL THREE ImageKit values are set. Without them the rest of the
+// site still works, and the upload routes explain that uploads are not set up yet.
+env.imagekitConfigured = Boolean(env.imagekitPublicKey && env.imagekitPrivateKey && env.imagekitUrlEndpoint);
+
+if (!env.imagekitConfigured && (env.imagekitPublicKey || env.imagekitPrivateKey || env.imagekitUrlEndpoint)) {
+  console.warn("ImageKit is only partly set up. Fill in IMAGEKIT_PUBLIC_KEY, IMAGEKIT_PRIVATE_KEY and IMAGEKIT_URL_ENDPOINT.");
+}

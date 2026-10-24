@@ -2,6 +2,7 @@ import Project from "../models/Project.js";
 import Category from "../models/Category.js";
 import { httpError, fieldError } from "../utils/httpError.js";
 import { slugify } from "../utils/text.js";
+import { filesOf, prepareProjectPhotos, deleteRemovedFiles } from "../utils/photos.js";
 
 // The web address must not be used by another project.
 async function assertSlugFree(slug, ignoreId) {
@@ -97,7 +98,10 @@ export async function createProject(req, res) {
   await assertSlugFree(slug);
   await assertCategory(data.service, data.category);
 
-  const project = await Project.create({ ...data, slug });
+  // Every photo is checked (new ImageKit uploads are verified with ImageKit) before anything is saved.
+  const photos = await prepareProjectPhotos({ coverImage: data.coverImage, images: data.images });
+
+  const project = await Project.create({ ...data, ...photos, slug });
   res.status(201).json({ project: project.toJSON() });
 }
 
@@ -128,7 +132,21 @@ export async function updateProject(req, res) {
     await assertSlugFree(changes.slug, project._id);
   }
 
+  // Photos: any NEW photo is verified with ImageKit before anything is saved.
+  const photosBefore = filesOf(project.coverImage, ...project.images);
+  if (changes.coverImage || changes.images) {
+    const photos = await prepareProjectPhotos(
+      { coverImage: changes.coverImage, images: changes.images },
+      { knownFiles: photosBefore, exceptProjectId: project._id }
+    );
+    Object.assign(changes, photos);
+  }
+
   project.set(changes);
   await project.save(); // runs the model's rules as well
+
+  // Photos that were taken off this project are deleted from ImageKit.
+  await deleteRemovedFiles(photosBefore, filesOf(project.coverImage, ...project.images));
+
   res.json({ project: project.toJSON() });
 }

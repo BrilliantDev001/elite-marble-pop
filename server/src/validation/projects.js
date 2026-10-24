@@ -87,7 +87,11 @@ export const photoSchema = z.object({
   ),
   fileId: z.preprocess(
     blankIfMissing,
-    z.string().trim().max(200, "The file ID is too long."),
+    z
+      .string()
+      .trim()
+      .max(64, "The file ID is too long.")
+      .regex(/^[A-Za-z0-9_-]*$/, "The file ID is not valid."),
   ),
   alt: z.preprocess(
     (value) => cleanText(blankIfMissing(value)),

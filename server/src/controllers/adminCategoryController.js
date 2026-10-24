@@ -2,6 +2,7 @@ import Category from "../models/Category.js";
 import Project from "../models/Project.js";
 import { httpError, fieldError } from "../utils/httpError.js";
 import { slugify, normalizeName } from "../utils/text.js";
+import { filesOf, prepareCategoryPhoto, deleteRemovedFiles } from "../utils/photos.js";
 
 const SERVICE_LABELS = { marble: "Marble", pop: "POP" };
 
@@ -80,12 +81,15 @@ export async function createCategory(req, res) {
     );
   }
 
+  // The photo (if any) is checked before anything is saved.
+  const photo = await prepareCategoryPhoto(image);
+
   const category = await Category.create({
     slug,
     name,
     service,
     description,
-    image,
+    image: photo,
     active: true,
   });
   res.status(201).json({ category: await withProjectCount(category) });
@@ -109,7 +113,20 @@ export async function updateCategory(req, res) {
     await assertNameFree(changes.name, category.slug);
   }
 
+  // Photo: a NEW photo is verified with ImageKit first. "image: null" removes the photo.
+  const photoBefore = filesOf(category.image);
+  if (changes.image !== undefined) {
+    changes.image = await prepareCategoryPhoto(changes.image, {
+      knownFiles: photoBefore,
+      exceptCategorySlug: category.slug,
+    });
+  }
+
   category.set(changes);
   await category.save();
+
+  // A photo that was replaced or removed is deleted from ImageKit.
+  await deleteRemovedFiles(photoBefore, filesOf(category.image));
+
   res.json({ category: await withProjectCount(category) });
 }
