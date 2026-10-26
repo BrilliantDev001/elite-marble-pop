@@ -1,47 +1,62 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import {
   CircleAlert,
   Images,
   Inbox,
   LayoutDashboard,
+  LoaderCircle,
   LogOut,
   Settings,
   Star,
   Tags,
 } from "lucide-react";
 import BrandLogo from "../shared/BrandLogo";
-import { projects as sampleProjects } from "../../data/projects";
-import { categories as sampleCategories } from "../../data/categories";
-import {
-  initialAdminReviews,
-  initialAdminEnquiries,
-  initialAdminSettings,
-} from "../../data/adminMock";
+import { useAdminSession } from "../../context/adminSessionContext";
+import { apiRequest } from "../../services/api";
 
-// The shell around every admin screen: banner, header, side navigation.
-// All the mock data lives here as state. Screens read and change it with
-//   const { reviews, setReviews } = useOutletContext();
-export default function AdminLayout({ onLogout }) {
+// The shell around every admin screen: header, side navigation and the real counts.
+// Screens read the counts with:  const { counts, countsFailed, refreshCounts } = useOutletContext();
+// and call refreshCounts() after they change something, so the side badges stay correct.
+export default function AdminLayout() {
   const { pathname } = useLocation();
+  const { admin, logout } = useAdminSession();
 
-  const [projects, setProjects] = useState(sampleProjects);
-  const [categories, setCategories] = useState(sampleCategories);
-  const [reviews, setReviews] = useState(initialAdminReviews);
-  const [enquiries, setEnquiries] = useState(initialAdminEnquiries);
-  const [settings, setSettings] = useState(initialAdminSettings);
+  const [counts, setCounts] = useState(null);
+  const [countsFailed, setCountsFailed] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState("");
 
-  // Scroll to the top when moving between admin screens.
+  // Loads the real counts: projects, reviews and enquiries by status.
+  const refreshCounts = useCallback(async () => {
+    try {
+      const data = await apiRequest("/api/admin/overview");
+      setCounts(data);
+      setCountsFailed(false);
+    } catch (error) {
+      if (error.name !== "AbortError") setCountsFailed(true);
+    }
+  }, []);
+
+  // Each time a screen is opened: scroll to the top, and refresh the counts.
   useEffect(() => {
     window.scrollTo(0, 0);
-  }, [pathname]);
+    refreshCounts();
+  }, [pathname, refreshCounts]);
 
-  const pendingReviews = reviews.filter(
-    (review) => review.status === "pending",
-  ).length;
-  const newEnquiries = enquiries.filter(
-    (enquiry) => enquiry.status === "New",
-  ).length;
+  async function handleLogout() {
+    setLoggingOut(true);
+    setLogoutError("");
+    try {
+      await logout(); // on success, this whole screen is replaced by the login screen
+    } catch (error) {
+      setLoggingOut(false);
+      setLogoutError(`${error.message} You are still logged in.`);
+    }
+  }
+
+  const pendingReviews = counts?.reviews.pending ?? 0;
+  const newEnquiries = counts?.enquiries.New ?? 0;
 
   const navItems = [
     { to: "/admin", label: "Overview", icon: LayoutDashboard, end: true },
@@ -73,22 +88,6 @@ export default function AdminLayout({ onLogout }) {
         Skip to main content
       </a>
 
-      {/* Always-visible prototype warning */}
-      <div className="bg-obsidian text-ivory">
-        <div className="container-page flex items-start gap-3 py-2.5 text-sm">
-          <CircleAlert
-            size={18}
-            aria-hidden="true"
-            className="mt-0.5 shrink-0 text-gold"
-          />
-          <p>
-            <strong className="text-gold">PROTOTYPE.</strong> Mock data only.
-            Nothing here is saved, there is no real login, and refreshing the
-            page resets everything.
-          </p>
-        </div>
-      </div>
-
       <header className="border-b border-obsidian/10">
         <div className="container-page flex h-20 items-center justify-between gap-4">
           <div className="flex items-center gap-4">
@@ -97,16 +96,45 @@ export default function AdminLayout({ onLogout }) {
               Admin
             </span>
           </div>
-          <button
-            type="button"
-            onClick={onLogout}
-            className="btn-outline btn-sm"
-          >
-            <LogOut size={14} aria-hidden="true" />
-            Log out
-          </button>
+
+          <div className="flex items-center gap-4">
+            <span className="hidden max-w-[16rem] truncate text-sm text-obsidian/75 md:inline">
+              {admin?.email}
+            </span>
+            <button
+              type="button"
+              onClick={handleLogout}
+              disabled={loggingOut}
+              aria-busy={loggingOut}
+              className="btn-outline btn-sm disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {loggingOut ? (
+                <LoaderCircle
+                  size={14}
+                  aria-hidden="true"
+                  className="animate-spin"
+                />
+              ) : (
+                <LogOut size={14} aria-hidden="true" />
+              )}
+              Log out
+            </button>
+          </div>
         </div>
       </header>
+
+      {logoutError && (
+        <div role="alert" className="border-b border-red-800 bg-red-50">
+          <div className="container-page flex items-start gap-3 py-3 text-sm">
+            <CircleAlert
+              size={18}
+              aria-hidden="true"
+              className="mt-0.5 shrink-0 text-red-800"
+            />
+            <p>{logoutError}</p>
+          </div>
+        </div>
+      )}
 
       <div className="container-page grid gap-8 py-8 lg:grid-cols-[14rem_1fr] lg:gap-12">
         <nav aria-label="Admin">
@@ -139,20 +167,7 @@ export default function AdminLayout({ onLogout }) {
         </nav>
 
         <main id="admin-main" className="min-w-0">
-          <Outlet
-            context={{
-              projects,
-              setProjects,
-              categories,
-              setCategories,
-              reviews,
-              setReviews,
-              enquiries,
-              setEnquiries,
-              settings,
-              setSettings,
-            }}
-          />
+          <Outlet context={{ counts, countsFailed, refreshCounts }} />
         </main>
       </div>
     </div>

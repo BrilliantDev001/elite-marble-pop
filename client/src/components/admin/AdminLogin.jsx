@@ -1,26 +1,30 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { CircleAlert } from "lucide-react";
+import { CircleAlert, LoaderCircle } from "lucide-react";
 import BrandLogo from "../shared/BrandLogo";
 import FormField from "../shared/FormField";
 import usePageMeta from "../../hooks/usePageMeta";
+import { useAdminSession } from "../../context/adminSessionContext";
 
-// FAKE LOGIN, for the prototype only. There is no real authentication yet.
-// Real owner login (secure passwords, sessions, protected API routes) is built in the backend phase.
-export default function AdminLogin({ onLogin }) {
+export default function AdminLogin() {
   usePageMeta("Admin login");
 
+  const { login, notice } = useAdminSession();
   const [values, setValues] = useState({ email: "", password: "" });
   const [errors, setErrors] = useState({});
+  const [formError, setFormError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   function setField(name, value) {
     setValues((current) => ({ ...current, [name]: value }));
     setErrors((current) => ({ ...current, [name]: undefined }));
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
+    if (submitting) return;
 
+    // Quick checks in the browser. The server checks again.
     const found = {};
     const email = values.email.trim();
     if (!email) found.email = "Please enter your email address.";
@@ -29,12 +33,30 @@ export default function AdminLogin({ onLogin }) {
     if (!values.password) found.password = "Please enter your password.";
 
     setErrors(found);
+    setFormError("");
 
     if (found.email) return document.getElementById("email")?.focus();
     if (found.password) return document.getElementById("password")?.focus();
 
-    // Prototype: anything is accepted.
-    onLogin();
+    setSubmitting(true);
+    try {
+      await login(email, values.password);
+      // On success the session changes and this screen is replaced by the dashboard.
+    } catch (error) {
+      setSubmitting(false);
+
+      const fields = error.fields ?? {};
+      if (fields.email || fields.password) {
+        setErrors(fields);
+        document.getElementById(fields.email ? "email" : "password")?.focus();
+      } else {
+        // For example "Incorrect email or password." or "Too many login attempts...".
+        // The password is cleared so it is not left sitting in the form.
+        setFormError(error.message);
+        setValues((current) => ({ ...current, password: "" }));
+        document.getElementById("password")?.focus();
+      }
+    }
   }
 
   return (
@@ -44,17 +66,12 @@ export default function AdminLogin({ onLogin }) {
 
         <h1 className="mt-10 text-4xl font-medium">Admin login</h1>
 
-        <div className="mt-6 flex gap-3 border border-obsidian/30 p-4 text-sm">
-          <CircleAlert
-            size={18}
-            aria-hidden="true"
-            className="mt-0.5 shrink-0"
-          />
-          <p>
-            <strong>Prototype.</strong> This login is not real. Enter any email
-            and password to preview the dashboard. Nothing is checked or saved.
+        {/* "You have been logged out." or "Your session has ended." */}
+        {notice && (
+          <p role="status" className="mt-6 border-l-2 border-gold pl-4 text-sm">
+            {notice}
           </p>
-        </div>
+        )}
 
         <form onSubmit={handleSubmit} noValidate className="mt-8 space-y-6">
           <FormField id="email" label="Email address" error={errors.email}>
@@ -81,8 +98,38 @@ export default function AdminLogin({ onLogin }) {
             )}
           </FormField>
 
-          <button type="submit" className="btn-primary w-full">
-            Log in
+          {formError && (
+            <div
+              role="alert"
+              className="flex items-start gap-3 border border-red-800 p-4 text-sm"
+            >
+              <CircleAlert
+                size={18}
+                aria-hidden="true"
+                className="mt-0.5 shrink-0 text-red-800"
+              />
+              <p>{formError}</p>
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={submitting}
+            aria-busy={submitting}
+            className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {submitting ? (
+              <>
+                <LoaderCircle
+                  size={16}
+                  aria-hidden="true"
+                  className="animate-spin"
+                />
+                Logging in...
+              </>
+            ) : (
+              "Log in"
+            )}
           </button>
         </form>
 

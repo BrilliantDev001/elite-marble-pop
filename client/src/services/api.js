@@ -6,6 +6,10 @@
 const API_BASE = (import.meta.env.VITE_API_URL ?? "").replace(/\/+$/, "");
 
 // An error from the API (or from reaching it), with messages that are safe to show to a visitor.
+// Announced when an admin request is refused because the login has ended.
+// The admin session listens for it and shows the login screen again.
+export const SESSION_EXPIRED_EVENT = "elite:session-expired";
+
 export class ApiError extends Error {
   constructor(message, { status = 0, fields = {} } = {}) {
     super(message);
@@ -57,6 +61,10 @@ export async function apiRequest(path, { method = "GET", body, signal } = {}) {
   }
 
   if (!response.ok) {
+    // A refused admin request means the login has ended. (The login routes handle their own 401s.)
+    if (response.status === 401 && path.startsWith("/api/admin/") && !path.startsWith("/api/admin/auth/")) {
+      window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+    }
     throw new ApiError(
       data?.message ?? "Something went wrong. Please try again.",
       {
