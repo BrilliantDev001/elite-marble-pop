@@ -3,9 +3,8 @@ import { Link } from "react-router-dom";
 import { ArrowLeft, MapPin } from "lucide-react";
 import SiteImage from "../shared/SiteImage";
 import ProjectLightbox from "./ProjectLightbox";
-import { getCategoryBySlug, getGalleryLink } from "../../data/categories";
+import { getGalleryLink, getProjectImages } from "../../utils/projects";
 import { getServiceBySlug } from "../../data/services";
-import { getProjectImages } from "../../data/projects";
 
 // The content of one project page: title, text, and a grid of its photos.
 // Clicking a photo opens the lightbox on that photo.
@@ -14,7 +13,7 @@ export default function ProjectDetails({ project }) {
   const [lightboxIndex, setLightboxIndex] = useState(null);
 
   const service = getServiceBySlug(project.service);
-  const category = getCategoryBySlug(project.category);
+  const categoryName = project.categoryName;
   const images = getProjectImages(project);
 
   return (
@@ -28,14 +27,14 @@ export default function ProjectDetails({ project }) {
           className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold"
         >
           <ArrowLeft size={16} aria-hidden="true" />
-          Back to {category ? category.name : "gallery"}
+          Back to {categoryName || "gallery"}
         </Link>
 
         <div className="mt-6 max-w-3xl">
           <p className="mb-4 flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.25em] text-obsidian/70">
             <span aria-hidden="true" className="h-px w-8 bg-gold" />
             {service?.name}
-            {category && ` · ${category.name}`}
+            {categoryName && ` · ${categoryName}`}
           </p>
 
           <h1 className="text-4xl font-medium md:text-6xl">{project.title}</h1>

@@ -3,23 +3,36 @@ import SectionHeading from "../components/shared/SectionHeading";
 import QuoteCTA from "../components/shared/QuoteCTA";
 import GalleryFilters from "../components/projects/GalleryFilters";
 import ProjectGallery from "../components/projects/ProjectGallery";
+import useApi from "../hooks/useApi";
+import usePagedApi from "../hooks/usePagedApi";
 import usePageMeta from "../hooks/usePageMeta";
-import { filterProjects } from "../data/projects";
-import { getCategoryBySlug } from "../data/categories";
+import { toProject } from "../services/mappers";
 import { getServiceBySlug } from "../data/services";
+
+const PAGE_SIZE = 9; // three rows of three on desktop
 
 export default function Gallery() {
   // The filters live in the URL: /gallery?service=marble&category=kitchen-countertops
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Unknown values in the URL (a typo, an old link) are ignored.
+  // The active categories, for the filter buttons.
+  const categoriesRequest = useApi("/api/categories");
+  const categories = categoriesRequest.data?.items ?? [];
+  const categoriesStatus = categoriesRequest.status;
+
+  // Unknown values in the URL (a typo, an old link, an archived category) are ignored.
+  // While the categories are still loading, a category in the URL is trusted for now.
   const rawService = searchParams.get("service") ?? "";
   const rawCategory = searchParams.get("category") ?? "";
   const service = getServiceBySlug(rawService) ? rawService : "";
-  const category = getCategoryBySlug(rawCategory) ? rawCategory : "";
+  const knownCategory = categories.find((c) => c.slug === rawCategory);
+  const category =
+    rawCategory && (categoriesStatus !== "ready" || knownCategory)
+      ? rawCategory
+      : "";
 
   // Page title reflects the filter, e.g. "Kitchen Countertops Gallery"
-  const categoryName = getCategoryBySlug(category)?.name;
+  const categoryName = knownCategory?.name;
   const serviceName = getServiceBySlug(service)?.shortName;
   usePageMeta(
     categoryName
@@ -30,12 +43,9 @@ export default function Gallery() {
     "Browse marble and POP projects by ELITE. Filter by service and category.",
   );
 
-  // Dev only: add ?state=loading or ?state=error to the URL to preview those states.
-  const demoState = import.meta.env.DEV ? searchParams.get("state") : null;
-  const status =
-    demoState === "loading" || demoState === "error" ? demoState : "ready";
-
-  const projects = filterProjects({ service, category });
+  // The projects, loaded from the API one page at a time (the server does the filtering).
+  const list = usePagedApi("/api/projects", { service, category }, PAGE_SIZE);
+  const projects = list.items.map(toProject);
 
   // Writes new filter values into the URL, keeping any other parameters.
   function updateFilters(nextService, nextCategory) {
@@ -50,24 +60,20 @@ export default function Gallery() {
   function handleServiceChange(value) {
     // Keep the chosen category only if it belongs to the new service
     const keepCategory =
-      category && (!value || getCategoryBySlug(category).service === value);
+      category && (!value || knownCategory?.service === value);
     updateFilters(value, keepCategory ? category : "");
   }
 
   function handleCategoryChange(value) {
     // Choosing a category also selects the service it belongs to
-    const owningService = value ? getCategoryBySlug(value).service : service;
+    const owningService = value
+      ? (categories.find((c) => c.slug === value)?.service ?? service)
+      : service;
     updateFilters(owningService, value);
   }
 
   function handleClear() {
     updateFilters("", "");
-  }
-
-  function handleRetry() {
-    const next = new URLSearchParams(searchParams);
-    next.delete("state");
-    setSearchParams(next);
   }
 
   return (
@@ -84,6 +90,8 @@ export default function Gallery() {
           <GalleryFilters
             service={service}
             category={category}
+            categories={categories}
+            categoriesStatus={categoriesStatus}
             onServiceChange={handleServiceChange}
             onCategoryChange={handleCategoryChange}
             onClear={handleClear}
@@ -92,12 +100,16 @@ export default function Gallery() {
 
         <div className="mt-14">
           <ProjectGallery
-            key={`${service}|${category}`}
             projects={projects}
-            status={status}
+            status={list.status}
+            total={list.total}
+            hasMore={list.hasMore}
+            loadingMore={list.loadingMore}
+            moreError={list.moreError}
             hasFilters={Boolean(service || category)}
+            onLoadMore={list.loadMore}
             onClear={handleClear}
-            onRetry={handleRetry}
+            onRetry={list.reload}
           />
         </div>
       </section>

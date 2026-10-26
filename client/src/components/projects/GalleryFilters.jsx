@@ -1,6 +1,5 @@
 import { X } from "lucide-react";
 import { services } from "../../data/services";
-import { categories, getCategoryBySlug } from "../../data/categories";
 
 // A filter button. Dark when it is the active choice.
 function chipClass(active) {
@@ -17,12 +16,16 @@ function chipClass(active) {
 //
 // Props:
 //   service, category    current values ("" means "not filtered")
+//   categories           the active categories, from the API
+//   categoriesStatus     "loading", "ready" or "error"
 //   onServiceChange(v)   v is "marble", "pop" or ""
 //   onCategoryChange(v)  v is a category slug, or "" to clear it
 //   onClear()            clears everything
 export default function GalleryFilters({
   service,
   category,
+  categories,
+  categoriesStatus,
   onServiceChange,
   onCategoryChange,
   onClear,
@@ -32,7 +35,7 @@ export default function GalleryFilters({
     ? services.filter((s) => s.slug === service)
     : services;
   const activeService = services.find((s) => s.slug === service);
-  const activeCategory = getCategoryBySlug(category);
+  const activeCategory = categories.find((c) => c.slug === category);
   const hasFilters = Boolean(service || category);
 
   return (
@@ -66,33 +69,50 @@ export default function GalleryFilters({
       </div>
 
       {/* ---------- Category (grouped by service) ---------- */}
-      <div className="space-y-5">
-        {visibleServices.map((s) => (
-          <div key={s.slug}>
-            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-obsidian/70">
-              {s.shortName} categories
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {categories
-                .filter((c) => c.service === s.slug && c.active)
-                .map((c) => (
-                  <button
-                    key={c.slug}
-                    type="button"
-                    aria-pressed={category === c.slug}
-                    // Clicking the active category again turns it off
-                    onClick={() =>
-                      onCategoryChange(category === c.slug ? "" : c.slug)
-                    }
-                    className={chipClass(category === c.slug)}
-                  >
-                    {c.name}
-                  </button>
-                ))}
-            </div>
-          </div>
-        ))}
-      </div>
+      {categoriesStatus === "loading" && (
+        <p role="status" className="text-sm text-obsidian/75">
+          Loading categories...
+        </p>
+      )}
+
+      {categoriesStatus === "error" && (
+        <p className="text-sm text-obsidian/75">
+          Categories could not be loaded. You can still filter by service.
+        </p>
+      )}
+
+      {categoriesStatus === "ready" && (
+        <div className="space-y-5">
+          {visibleServices.map((s) => {
+            const group = categories.filter((c) => c.service === s.slug);
+            if (group.length === 0) return null;
+
+            return (
+              <div key={s.slug}>
+                <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-obsidian/70">
+                  {s.shortName} categories
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {group.map((c) => (
+                    <button
+                      key={c.slug}
+                      type="button"
+                      aria-pressed={category === c.slug}
+                      // Clicking the active category again turns it off
+                      onClick={() =>
+                        onCategoryChange(category === c.slug ? "" : c.slug)
+                      }
+                      className={chipClass(category === c.slug)}
+                    >
+                      {c.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* ---------- Active filters ---------- */}
       {hasFilters && (

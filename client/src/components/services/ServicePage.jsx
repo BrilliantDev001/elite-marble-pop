@@ -7,8 +7,11 @@ import CategoryPreview from "../home/CategoryPreview";
 import PricingGuidance from "./PricingGuidance";
 import usePageMeta from "../../hooks/usePageMeta";
 import { getServiceBySlug } from "../../data/services";
-import { filterProjects } from "../../data/projects";
-import { getGalleryLink } from "../../data/categories";
+import CardGridSkeleton from "../shared/CardGridSkeleton";
+import LoadError from "../shared/LoadError";
+import useApi from "../../hooks/useApi";
+import { toProject } from "../../services/mappers";
+import { getGalleryLink } from "../../utils/projects";
 import { siteConfig } from "../../data/siteConfig";
 
 // One page layout used by both /marble and /pop.
@@ -18,16 +21,41 @@ export default function ServicePage({ serviceSlug, tone = "light" }) {
   const service = getServiceBySlug(serviceSlug);
   usePageMeta(service?.name, service?.intro);
 
+  // Up to 4 published projects for this service: the featured ones first, then the newest to fill up.
+  // Two small requests, so a featured project is never missed just because it is older.
+  const featuredRequest = useApi("/api/projects", {
+    service: serviceSlug,
+    featured: "true",
+    limit: 4,
+  });
+  const latestRequest = useApi("/api/projects", {
+    service: serviceSlug,
+    limit: 4,
+  });
+  const featured = (featuredRequest.data?.items ?? []).map(toProject);
+  const latest = (latestRequest.data?.items ?? []).map(toProject);
+  const selected = [
+    ...featured,
+    ...latest.filter(
+      (project) => !featured.some((item) => item.id === project.id),
+    ),
+  ].slice(0, 4);
+
+  const requests = [featuredRequest, latestRequest];
+  let projectsStatus = "ready";
+  if (requests.some((request) => request.status === "error"))
+    projectsStatus = "error";
+  else if (requests.some((request) => request.status === "loading"))
+    projectsStatus = "loading";
+
+  function reloadProjects() {
+    featuredRequest.reload();
+    latestRequest.reload();
+  }
+
   if (!service) return null;
 
   const isDark = tone === "dark";
-
-  // Up to 4 published projects for this service, featured ones first.
-  const all = filterProjects({ service: serviceSlug });
-  const selected = [
-    ...all.filter((project) => project.featured),
-    ...all.filter((project) => !project.featured),
-  ].slice(0, 4);
 
   return (
     <>
@@ -65,7 +93,7 @@ export default function ServicePage({ serviceSlug, tone = "light" }) {
               >
                 View {service.shortName} Projects
               </Link>
-                            <Link
+              <Link
                 to={`/contact?service=${serviceSlug}`}
                 className={isDark ? "btn-outline-light" : "btn-outline"}
               >
@@ -107,25 +135,42 @@ export default function ServicePage({ serviceSlug, tone = "light" }) {
             </Link>
           </div>
 
-          {selected.length > 0 ? (
-            <div className="mt-14 grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-4">
-              {selected.map((project) => (
-                <ProjectCard key={project.id} project={project} />
-              ))}
-            </div>
-          ) : (
-            <p className="mt-14 border border-obsidian/15 p-8 text-obsidian/80">
-              {service.shortName} projects will appear here once they have been
-              published.
-            </p>
+          {projectsStatus === "loading" && (
+            <CardGridSkeleton
+              count={4}
+              className="mt-14 grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-4"
+            />
           )}
+
+          {projectsStatus === "error" && (
+            <div className="mt-14">
+              <LoadError
+                message="We could not load the projects."
+                onRetry={reloadProjects}
+              />
+            </div>
+          )}
+
+          {projectsStatus === "ready" &&
+            (selected.length > 0 ? (
+              <div className="mt-14 grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-4">
+                {selected.map((project) => (
+                  <ProjectCard key={project.id} project={project} />
+                ))}
+              </div>
+            ) : (
+              <p className="mt-14 border border-obsidian/15 p-8 text-obsidian/80">
+                {service.shortName} projects will appear here once they have
+                been published.
+              </p>
+            ))}
         </div>
       </section>
 
       {/* ---------- Pricing guidance (no prices) ---------- */}
       <PricingGuidance service={service} />
 
-      {/* ---------- Closing call to action ---------- */} 
+      {/* ---------- Closing call to action ---------- */}
       <QuoteCTA
         title={`Planning ${service.shortName} work?`}
         whatsappMessage={`Hello ELITE, I would like a quote for ${service.name}.`}

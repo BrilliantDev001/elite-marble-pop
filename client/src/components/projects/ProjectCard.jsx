@@ -1,9 +1,8 @@
 import { Link } from "react-router-dom";
 import { Images } from "lucide-react";
 import SiteImage from "../shared/SiteImage";
-import { getCategoryBySlug } from "../../data/categories";
 import { getServiceBySlug } from "../../data/services";
-import { getProjectImages } from "../../data/projects";
+ import { getProjectImages } from "../../utils/projects";
 
 // One project in a grid: cover image, title, service and category.
 // Clicking opens the project page at /gallery/:slug.
@@ -12,7 +11,7 @@ export default function ProjectCard({
   sizes = "(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw",
 }) {
   const service = getServiceBySlug(project.service);
-  const category = getCategoryBySlug(project.category);
+ 
   const photoCount = getProjectImages(project).length;
 
   return (
@@ -28,7 +27,7 @@ export default function ProjectCard({
 
         <p className="mt-1 text-sm text-obsidian/80">
           {service?.shortName}
-          {category && ` · ${category.name}`}
+          {project.categoryName && ` · ${project.categoryName}`}
         </p>
 
         {/* Only shown when the project has more than one photo */}
