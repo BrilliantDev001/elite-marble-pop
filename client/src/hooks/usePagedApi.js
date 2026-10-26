@@ -113,6 +113,20 @@ export default function usePagedApi(path, query = {}, pageSize = 12) {
   let status = "loading";
   if (current) status = current.error ? "error" : "ready";
 
+  // Changes the loaded items without reloading, for example after an admin action.
+  // updater(items) must return the new list. Removing items lowers the total to match.
+  function patchItems(updater) {
+    setState((latest) => {
+      if (latest.key !== key) return latest;
+      const items = updater(latest.items);
+      return {
+        ...latest,
+        items,
+        total: Math.max(0, latest.total - (latest.items.length - items.length)),
+      };
+    });
+  }
+
   return {
     status,
     items: current?.items ?? [],
@@ -122,6 +136,7 @@ export default function usePagedApi(path, query = {}, pageSize = 12) {
     moreError: current?.moreError ?? null,
     error: current?.error ?? null,
     loadMore,
+    patchItems,
     reload: () => setAttempt((count) => count + 1),
   };
 }

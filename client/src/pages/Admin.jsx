@@ -5,6 +5,8 @@ import { useAdminSession } from "../context/adminSessionContext";
 import AdminLogin from "../components/admin/AdminLogin";
 import AdminLayout from "../components/admin/AdminLayout";
 import AdminOverview from "../components/admin/AdminOverview";
+import AdminReviews from "../components/admin/AdminReviews";
+import AdminEnquiries from "../components/admin/AdminEnquiries";
 import usePageMeta from "../hooks/usePageMeta";
 
 // TEMPORARY: each screen is replaced by the real one in the next steps.
@@ -67,11 +69,8 @@ function AdminGate() {
           path="categories"
           element={<AdminSectionStub title="Categories" />}
         />
-        <Route path="reviews" element={<AdminSectionStub title="Reviews" />} />
-        <Route
-          path="enquiries"
-          element={<AdminSectionStub title="Enquiries" />}
-        />
+        <Route path="reviews" element={<AdminReviews />} />
+        <Route path="enquiries" element={<AdminEnquiries />} />
         <Route
           path="settings"
           element={<AdminSectionStub title="Settings" />}

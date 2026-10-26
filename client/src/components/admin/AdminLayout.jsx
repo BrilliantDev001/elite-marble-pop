@@ -27,22 +27,33 @@ export default function AdminLayout() {
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState("");
 
-  // Loads the real counts: projects, reviews and enquiries by status.
-  const refreshCounts = useCallback(async () => {
-    try {
-      const data = await apiRequest("/api/admin/overview");
-      setCounts(data);
-      setCountsFailed(false);
-    } catch (error) {
-      if (error.name !== "AbortError") setCountsFailed(true);
-    }
-  }, []);
+  // Screens call refreshCounts() after they change something. It only asks for a reload.
+  // The loading itself happens in the effect below.
+  const [countsVersion, setCountsVersion] = useState(0);
+  const refreshCounts = useCallback(() => setCountsVersion((version) => version + 1), []);
 
-  // Each time a screen is opened: scroll to the top, and refresh the counts.
+  // Each time a screen is opened: scroll to the top.
   useEffect(() => {
     window.scrollTo(0, 0);
-    refreshCounts();
-  }, [pathname, refreshCounts]);
+  }, [pathname]);
+
+  // Loads the real counts (projects, reviews and enquiries by status) when a screen is opened,
+  // and again whenever a screen asks for a refresh. A request that is no longer needed is cancelled.
+  useEffect(() => {
+    const controller = new AbortController();
+
+    apiRequest("/api/admin/overview", { signal: controller.signal }).then(
+      (data) => {
+        setCounts(data);
+        setCountsFailed(false);
+      },
+      (error) => {
+        if (error.name !== "AbortError") setCountsFailed(true);
+      }
+    );
+
+    return () => controller.abort();
+  }, [pathname, countsVersion]);
 
   async function handleLogout() {
     setLoggingOut(true);
