@@ -1,12 +1,13 @@
 import { Link } from "react-router-dom";
-import { Phone, Mail, MessageCircle } from "lucide-react";
 import BrandLogo from "../shared/BrandLogo";
-import { siteConfig, getPhoneLink, getWhatsAppLink } from "../../data/siteConfig";
+import ContactLinks from "../shared/ContactLinks";
+import { useSettings } from "../../context/settingsContext";
+import { isPlaceholderContact, siteConfig } from "../../data/siteConfig";
 
 const linkClass = "text-ivory/80 transition-colors hover:text-gold";
 
 export default function Footer() {
-  const { contact } = siteConfig;
+  const { contact } = useSettings();
 
   return (
     <footer className="bg-obsidian text-ivory">
@@ -23,12 +24,36 @@ export default function Footer() {
             Explore
           </h2>
           <ul className="mt-5 space-y-3 text-sm">
-            <li><Link to="/marble" className={linkClass}>Marble Works</Link></li>
-            <li><Link to="/pop" className={linkClass}>POP Works</Link></li>
-            <li><Link to="/gallery" className={linkClass}>Gallery</Link></li>
-            <li><Link to="/reviews" className={linkClass}>Reviews</Link></li>
-            <li><Link to="/#about" className={linkClass}>About</Link></li>
-            <li><Link to="/contact" className={linkClass}>Contact</Link></li>
+            <li>
+              <Link to="/marble" className={linkClass}>
+                Marble Works
+              </Link>
+            </li>
+            <li>
+              <Link to="/pop" className={linkClass}>
+                POP Works
+              </Link>
+            </li>
+            <li>
+              <Link to="/gallery" className={linkClass}>
+                Gallery
+              </Link>
+            </li>
+            <li>
+              <Link to="/reviews" className={linkClass}>
+                Reviews
+              </Link>
+            </li>
+            <li>
+              <Link to="/#about" className={linkClass}>
+                About
+              </Link>
+            </li>
+            <li>
+              <Link to="/contact" className={linkClass}>
+                Contact
+              </Link>
+            </li>
           </ul>
         </div>
 
@@ -36,42 +61,21 @@ export default function Footer() {
           <h2 className="font-body text-xs font-semibold uppercase tracking-[0.25em] text-gold">
             Get in touch
           </h2>
-          <ul className="mt-5 space-y-3 text-sm">
-            <li>
-              <a href={getPhoneLink()} className={`${linkClass} inline-flex items-center gap-2.5`}>
-                <Phone size={16} aria-hidden="true" />
-                {contact.phoneDisplay}
-              </a>
-            </li>
-            <li>
-              <a
-                href={getWhatsAppLink()}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`${linkClass} inline-flex items-center gap-2.5`}
-              >
-                <MessageCircle size={16} aria-hidden="true" />
-                Chat on WhatsApp
-              </a>
-            </li>
-            <li>
-              <a href={`mailto:${contact.email}`} className={`${linkClass} inline-flex items-center gap-2.5`}>
-                <Mail size={16} aria-hidden="true" />
-                {contact.email}
-              </a>
-            </li>
-          </ul>
+          <div className="mt-5">
+            <ContactLinks linkClassName={`${linkClass} min-h-8`} />
+          </div>
         </div>
       </div>
 
       <div className="border-t border-ivory/10">
         <div className="container-page flex flex-col gap-2 py-6 text-xs text-ivory/70 sm:flex-row sm:justify-between">
           <p>
-            &copy; {new Date().getFullYear()} {siteConfig.name} {siteConfig.descriptor}
+            &copy; {new Date().getFullYear()} {siteConfig.name}{" "}
+            {siteConfig.descriptor}
           </p>
-          {/* Shown only while developing */}
-          {import.meta.env.DEV && contact.isPlaceholder && (
-            <p>Dev note: contact details are placeholders.</p>
+          {/* Shown only while developing, and only while the details are still the placeholders */}
+          {import.meta.env.DEV && isPlaceholderContact(contact) && (
+            <p>Dev note: contact details are still the placeholders.</p>
           )}
         </div>
       </div>

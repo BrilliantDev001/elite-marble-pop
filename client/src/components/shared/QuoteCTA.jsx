@@ -1,11 +1,8 @@
 import { Link } from "react-router-dom";
-import { Phone, Mail, MessageCircle } from "lucide-react";
 import SectionHeading from "./SectionHeading";
-import {
-  siteConfig,
-  getPhoneLink,
-  getWhatsAppLink,
-} from "../../data/siteConfig";
+import ContactLinks from "./ContactLinks";
+import { useSettings } from "../../context/settingsContext";
+import { siteConfig, getWhatsAppLink } from "../../data/siteConfig";
 
 // Closing "request a quote" band with direct contact options.
 //
@@ -17,9 +14,7 @@ export default function QuoteCTA({
   description = "Tell us what you have in mind and we will prepare a personalised quotation. You can also reach us directly.",
   whatsappMessage,
 }) {
-  const { contact } = siteConfig;
-  const linkClass =
-    "inline-flex items-center gap-2.5 text-ivory/90 transition-colors hover:text-gold";
+  const { contact } = useSettings();
 
   return (
     <section className="bg-obsidian py-20 text-ivory md:py-28">
@@ -35,42 +30,25 @@ export default function QuoteCTA({
             <Link to="/contact" className="btn-primary">
               {siteConfig.quoteCtaLabel}
             </Link>
-            <a
-              href={getWhatsAppLink(whatsappMessage)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn-outline-light"
-            >
-              WhatsApp us
-            </a>
+            {/* Only offered once the real WhatsApp number is known */}
+            {contact && (
+              <a
+                href={getWhatsAppLink(whatsappMessage, contact)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-outline-light"
+              >
+                WhatsApp us
+              </a>
+            )}
           </div>
         </div>
 
-        <ul className="space-y-4 text-sm">
-          <li>
-            <a href={getPhoneLink()} className={linkClass}>
-              <Phone size={18} aria-hidden="true" />
-              {contact.phoneDisplay}
-            </a>
-          </li>
-          <li>
-            <a href={`mailto:${contact.email}`} className={linkClass}>
-              <Mail size={18} aria-hidden="true" />
-              {contact.email}
-            </a>
-          </li>
-          <li>
-            <a
-              href={getWhatsAppLink(whatsappMessage)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={linkClass}
-            >
-              <MessageCircle size={18} aria-hidden="true" />
-              Chat on WhatsApp
-            </a>
-          </li>
-        </ul>
+        <ContactLinks
+          iconSize={18}
+          linkClassName="text-ivory/90 transition-colors hover:text-gold"
+          whatsappMessage={whatsappMessage}
+        />
       </div>
     </section>
   );

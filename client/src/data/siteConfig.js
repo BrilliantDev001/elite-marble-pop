@@ -53,3 +53,9 @@ export function getWhatsAppLink(
 export function getPhoneLink(contact = siteConfig.contact) {
   return `tel:${contact.phoneHref}`;
 }
+
+// True while the contact details are still the fake placeholders from this file.
+// Only used for a reminder that is shown in development.
+export function isPlaceholderContact(contact) {
+  return contact?.whatsappNumber === siteConfig.contact.whatsappNumber;
+}

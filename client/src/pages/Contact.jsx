@@ -1,8 +1,9 @@
-import { Phone, Mail, MessageCircle, MapPin } from "lucide-react";
 import SectionHeading from "../components/shared/SectionHeading";
+import ContactLinks from "../components/shared/ContactLinks";
 import QuoteForm from "../components/contact/QuoteForm";
+import { useSettings } from "../context/settingsContext";
 import usePageMeta from "../hooks/usePageMeta";
-import { siteConfig, getPhoneLink, getWhatsAppLink } from "../data/siteConfig";
+import { isPlaceholderContact } from "../data/siteConfig";
 
 export default function Contact() {
   usePageMeta(
@@ -10,9 +11,7 @@ export default function Contact() {
     "Request a personalised quote for marble or POP work from ELITE Marble & POP Works Ltd., or contact us directly.",
   );
 
-  const { contact } = siteConfig;
-  const linkClass =
-    "inline-flex min-h-11 items-center gap-3 underline-offset-4 hover:underline";
+  const { contact } = useSettings();
 
   return (
     <section className="container-page py-14 md:py-20">
@@ -29,40 +28,19 @@ export default function Contact() {
         {/* Direct contact options: the site works as a portfolio without the form */}
         <aside className="h-fit border-t-2 border-gold pt-6 lg:sticky lg:top-28">
           <h2 className="text-3xl font-medium">Contact us directly</h2>
-          <ul className="mt-6 space-y-3 text-base">
-            <li>
-              <a href={getPhoneLink()} className={linkClass}>
-                <Phone size={18} aria-hidden="true" />
-                {contact.phoneDisplay}
-              </a>
-            </li>
-            <li>
-              <a
-                href={getWhatsAppLink()}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={linkClass}
-              >
-                <MessageCircle size={18} aria-hidden="true" />
-                Chat on WhatsApp
-              </a>
-            </li>
-            <li>
-              <a href={`mailto:${contact.email}`} className={linkClass}>
-                <Mail size={18} aria-hidden="true" />
-                {contact.email}
-              </a>
-            </li>
-            <li className="flex gap-3 pt-2">
-              <MapPin size={18} aria-hidden="true" className="mt-1 shrink-0" />
-              <address className="not-italic">{contact.address}</address>
-            </li>
-          </ul>
+          <div className="mt-6">
+            <ContactLinks
+              iconSize={18}
+              showAddress
+              listClassName="space-y-3 text-base"
+              linkClassName="min-h-11 underline-offset-4 hover:underline"
+            />
+          </div>
 
-          {/* Shown only while developing */}
-          {import.meta.env.DEV && contact.isPlaceholder && (
+          {/* Shown only while developing, and only while the details are still the placeholders */}
+          {import.meta.env.DEV && isPlaceholderContact(contact) && (
             <p className="mt-6 text-xs text-obsidian/70">
-              Dev note: these contact details are placeholders.
+              Dev note: these contact details are still the placeholders.
             </p>
           )}
         </aside>
