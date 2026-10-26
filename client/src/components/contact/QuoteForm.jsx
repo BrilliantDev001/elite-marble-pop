@@ -2,17 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { CircleAlert, LoaderCircle, MessageCircle } from "lucide-react";
 import FormField, { FieldError } from "../shared/FormField";
-import { inputClass } from "../shared/formStyles";
+import HoneypotField from "../shared/HoneypotField";
+import useApi from "../../hooks/useApi";
+import { useSettings } from "../../context/settingsContext";
+import { apiRequest } from "../../services/api";
 import { services, getServiceBySlug } from "../../data/services";
-import {
-  getCategoriesByService,
-  getCategoryBySlug,
-} from "../../data/categories";
 import { getWhatsAppLink } from "../../data/siteConfig";
+import { countLinks } from "../../utils/forms";
 
-const ALLOWED_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
-const MAX_PHOTO_BYTES = 5 * 1024 * 1024; // 5 MB each
-const MAX_PHOTOS = 3;
 const MAX_DESCRIPTION_LENGTH = 1500;
 
 const contactMethods = [
@@ -31,23 +28,15 @@ const FOCUS_ORDER = [
   ["category", "category"],
   ["location", "location"],
   ["description", "description"],
-  ["photos", "photos"],
   ["consent", "consent"],
 ];
 
 // Reads ?service= and ?category= from the URL so links can open the form prefilled.
-// Unknown values are ignored. A category that doesn't belong to the service is dropped.
+// An unknown service is ignored. A category is only used together with a service, and it is
+// checked against the real categories once they have loaded.
 function getInitialValues(searchParams) {
   const serviceParam = searchParams.get("service") ?? "";
-  const category = getCategoryBySlug(searchParams.get("category") ?? "");
-
-  let service = getServiceBySlug(serviceParam) ? serviceParam : "";
-  let categorySlug = "";
-
-  if (category) {
-    if (!service) service = category.service; // the category tells us the service
-    if (category.service === service) categorySlug = category.slug;
-  }
+  const service = getServiceBySlug(serviceParam) ? serviceParam : "";
 
   return {
     name: "",
@@ -55,16 +44,15 @@ function getInitialValues(searchParams) {
     email: "",
     contactMethod: "",
     service,
-    category: categorySlug,
+    category: service ? (searchParams.get("category") ?? "") : "",
     location: "",
     description: "",
-    photos: [],
     consent: false,
+    website: "", // the hidden spam trap. It must stay empty for real visitors.
   };
 }
 
-// Checks every field and returns an object of error messages (empty = all good).
-// The real backend must run its own checks too. This is only for quick feedback.
+// Quick checks in the browser, for fast feedback. The server checks everything again.
 function validate(values) {
   const errors = {};
 
@@ -105,19 +93,8 @@ function validate(values) {
   if (!description) errors.description = "Please describe your project.";
   else if (description.length < 20)
     errors.description = "Please write at least 20 characters.";
-
-  if (values.photos.length > MAX_PHOTOS) {
-    errors.photos = `Please choose no more than ${MAX_PHOTOS} images.`;
-  } else {
-    const badType = values.photos.find(
-      (file) => !ALLOWED_PHOTO_TYPES.includes(file.type),
-    );
-    const tooBig = values.photos.find((file) => file.size > MAX_PHOTO_BYTES);
-    if (badType)
-      errors.photos = `"${badType.name}" is not a JPG, PNG or WebP image.`;
-    else if (tooBig)
-      errors.photos = `"${tooBig.name}" is larger than 5 MB. Please choose a smaller one.`;
-  }
+  else if (countLinks(description) > 2)
+    errors.description = "Please include no more than 2 web links.";
 
   if (!values.consent)
     errors.consent =
@@ -127,12 +104,10 @@ function validate(values) {
 }
 
 // A short WhatsApp message built from what the visitor has chosen so far.
-function buildWhatsAppMessage(values) {
-  const service = getServiceBySlug(values.service);
-  const category = getCategoryBySlug(values.category);
-  if (service && category) {
-    return `Hello ELITE, I would like a quote for ${category.name} (${service.name}).`;
-  }
+function buildWhatsAppMessage(serviceSlug, categoryName) {
+  const service = getServiceBySlug(serviceSlug);
+  if (service && categoryName)
+    return `Hello ELITE, I would like a quote for ${categoryName} (${service.name}).`;
   if (service) return `Hello ELITE, I would like a quote for ${service.name}.`;
   return undefined; // uses the default message
 }
@@ -142,21 +117,33 @@ export default function QuoteForm() {
   const [values, setValues] = useState(() => getInitialValues(searchParams));
   const [errors, setErrors] = useState({});
   const [status, setStatus] = useState("idle"); // idle | submitting | error | success
-  const [fileInputKey, setFileInputKey] = useState(0); // changing it empties the file input
-
-  const timerRef = useRef(null);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [thanks, setThanks] = useState("");
   const successRef = useRef(null);
 
-  // Dev only: add ?state=error to the URL to preview the error message.
-  const simulateError =
-    import.meta.env.DEV && searchParams.get("state") === "error";
+  const { contact } = useSettings();
 
-  const categoryOptions = values.service
-    ? getCategoriesByService(values.service)
-    : [];
+  // The active categories, loaded once and filtered by the chosen service.
+  const categoriesRequest = useApi("/api/categories");
+  const categoriesStatus = categoriesRequest.status;
+  const categoryOptions = (categoriesRequest.data?.items ?? []).filter(
+    (category) => category.service === values.service,
+  );
 
-  useEffect(() => () => clearTimeout(timerRef.current), []);
+  // A category from the link that does not exist, is archived, or belongs to the other service
+  // simply counts as "not chosen". Until the categories have loaded, nothing is sent for it.
+  const categoriesReady = categoriesStatus === "ready";
+  const category =
+    categoriesReady &&
+    !categoryOptions.some((option) => option.slug === values.category)
+      ? ""
+      : values.category;
+  const categoryToSend = categoriesReady ? category : "";
+  const selectedCategory = categoryOptions.find(
+    (option) => option.slug === category,
+  );
 
+  // Move focus to the success message so screen reader users hear it.
   useEffect(() => {
     if (status === "success") successRef.current?.focus();
   }, [status]);
@@ -177,11 +164,7 @@ export default function QuoteForm() {
     }));
   }
 
-  function handlePhotosChange(event) {
-    setField("photos", Array.from(event.target.files));
-  }
-
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
     if (status === "submitting") return;
 
@@ -194,21 +177,65 @@ export default function QuoteForm() {
       return;
     }
 
-    // PROTOTYPE: nothing is sent anywhere. We only pretend to wait.
     setStatus("submitting");
-    timerRef.current = setTimeout(() => {
-      setStatus(simulateError ? "error" : "success");
-    }, 1200);
+    setErrorMessage("");
+
+    try {
+      const data = await apiRequest("/api/enquiries", {
+        method: "POST",
+        body: {
+          name: values.name,
+          phone: values.phone,
+          email: values.email,
+          contactMethod: values.contactMethod,
+          service: values.service,
+          category: categoryToSend,
+          location: values.location,
+          description: values.description,
+          consent: values.consent,
+          website: values.website,
+        },
+      });
+      // We only say "thank you" now, after the server has really confirmed the save.
+      setThanks(data.message);
+      setStatus("success");
+    } catch (error) {
+      // The server found problems with specific fields: show them next to the fields.
+      const serverErrors = error.fields ?? {};
+      const first = FOCUS_ORDER.find(([key]) => serverErrors[key]);
+
+      if (first) {
+        setErrors(serverErrors);
+        setStatus("idle");
+        document.getElementById(first[1])?.focus();
+      } else {
+        setErrorMessage(error.message);
+        setStatus("error");
+      }
+    }
   }
 
   function handleReset() {
     setValues(getInitialValues(new URLSearchParams()));
     setErrors({});
-    setFileInputKey((key) => key + 1);
+    setErrorMessage("");
     setStatus("idle");
   }
 
-  const whatsappLink = getWhatsAppLink(buildWhatsAppMessage(values));
+  const whatsappLink = contact
+    ? getWhatsAppLink(
+        buildWhatsAppMessage(values.service, selectedCategory?.name),
+        contact,
+      )
+    : null;
+
+  // What the category menu says when it has no real choices to show.
+  let categoryPlaceholder = "Not sure yet / something else";
+  if (!values.service) categoryPlaceholder = "Choose a service first";
+  else if (categoriesStatus === "loading")
+    categoryPlaceholder = "Loading categories...";
+  else if (categoriesStatus === "error")
+    categoryPlaceholder = "Categories unavailable";
 
   // ---------- Success screen ----------
   if (status === "success") {
@@ -219,26 +246,26 @@ export default function QuoteForm() {
           tabIndex={-1}
           className="text-3xl font-medium focus:outline-none"
         >
-          Thank you. This is a prototype.
+          Thank you.
         </h2>
-        <p className="mt-4 text-obsidian/85">
-          Your enquiry has <strong>not</strong> been sent or saved anywhere,
-          because the website is not connected to a backend yet. Once it is,
-          your request will reach the owner, who will respond using your
-          preferred contact method.
-        </p>
-        <p className="mt-4 text-obsidian/85">
-          Want to reach us right now? You can message us directly on WhatsApp.
-        </p>
+        <p className="mt-4 text-obsidian/85">{thanks}</p>
+        {whatsappLink && (
+          <p className="mt-4 text-obsidian/85">
+            Have photos of the space or the style you like? You can send them to
+            us on WhatsApp.
+          </p>
+        )}
         <div className="mt-8 flex flex-col gap-4 sm:flex-row">
-          <a
-            href={whatsappLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn-primary"
-          >
-            WhatsApp us
-          </a>
+          {whatsappLink && (
+            <a
+              href={whatsappLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-primary"
+            >
+              Send photos on WhatsApp
+            </a>
+          )}
           <button type="button" onClick={handleReset} className="btn-outline">
             Start another enquiry
           </button>
@@ -254,6 +281,11 @@ export default function QuoteForm() {
   return (
     // noValidate turns off the browser's own pop-up messages so ours are shown instead
     <form onSubmit={handleSubmit} noValidate className="space-y-8">
+      <HoneypotField
+        value={values.website}
+        onChange={(value) => setField("website", value)}
+      />
+
       <p className="text-sm text-obsidian/75">
         We only ask for what we need to reply. All fields are required unless
         marked optional.
@@ -365,22 +397,23 @@ export default function QuoteForm() {
           label="Project category"
           required={false}
           error={errors.category}
+          hint={
+            categoriesStatus === "error"
+              ? "Categories could not be loaded. You can still send your enquiry."
+              : undefined
+          }
         >
           {(fieldProps) => (
             <select
               {...fieldProps}
-              disabled={!values.service}
-              value={values.category}
+              disabled={!values.service || !categoriesReady}
+              value={category}
               onChange={(event) => setField("category", event.target.value)}
             >
-              <option value="">
-                {values.service
-                  ? "Not sure yet / something else"
-                  : "Choose a service first"}
-              </option>
-              {categoryOptions.map((category) => (
-                <option key={category.slug} value={category.slug}>
-                  {category.name}
+              <option value="">{categoryPlaceholder}</option>
+              {categoryOptions.map((option) => (
+                <option key={option.slug} value={option.slug}>
+                  {option.name}
                 </option>
               ))}
             </select>
@@ -392,7 +425,7 @@ export default function QuoteForm() {
         id="location"
         label="Project location or general area"
         error={errors.location}
-        hint="A town or area is enough. We do not need your full address."
+        hint="A town or area is enough. Don't bother typing full address yet."
       >
         {(fieldProps) => (
           <input
@@ -427,35 +460,11 @@ export default function QuoteForm() {
         )}
       </FormField>
 
-      <div>
-        <FormField
-          id="photos"
-          label="Reference images"
-          required={false}
-          error={errors.photos}
-          hint={`Photos of the space or styles you like. Up to ${MAX_PHOTOS} images (JPG, PNG or WebP), 5 MB each.`}
-        >
-          {(fieldProps) => (
-            <input
-              {...fieldProps}
-              key={fileInputKey}
-              type="file"
-              multiple
-              accept="image/jpeg,image/png,image/webp"
-              onChange={handlePhotosChange}
-              className={`${inputClass(Boolean(errors.photos))} file:mr-4 file:border-0 file:bg-obsidian file:px-4 file:py-2 file:text-sm file:text-ivory`}
-            />
-          )}
-        </FormField>
-
-        {values.photos.length > 0 && (
-          <ul className="mt-3 space-y-1 text-sm text-obsidian/80">
-            {values.photos.map((file, index) => (
-              <li key={`${file.name}-${index}`}>{file.name}</li>
-            ))}
-          </ul>
-        )}
-      </div>
+      {/* The form is text only. Photos can be sent on WhatsApp instead. */}
+      <p className="text-sm text-obsidian/80">
+        Have photos of the space or styles you like? You can send them to us on
+        WhatsApp after you submit this form.
+      </p>
 
       <div>
         <div className="flex items-start gap-3">
@@ -489,35 +498,35 @@ export default function QuoteForm() {
             className="mt-0.5 shrink-0 text-red-800"
           />
           <p>
-            We could not send your enquiry. Please check your connection and try
-            again, or contact us directly by phone or WhatsApp.
+            {errorMessage}
+            {whatsappLink && " You can also contact us directly on WhatsApp."}
           </p>
         </div>
       )}
 
-      <div>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-          <button
-            type="submit"
-            disabled={status === "submitting"}
-            aria-busy={status === "submitting"}
-            className="btn-primary disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            {status === "submitting" ? (
-              <>
-                <LoaderCircle
-                  size={16}
-                  aria-hidden="true"
-                  className="animate-spin"
-                />
-                Sending...
-              </>
-            ) : (
-              "Send enquiry"
-            )}
-          </button>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+        <button
+          type="submit"
+          disabled={status === "submitting"}
+          aria-busy={status === "submitting"}
+          className="btn-primary disabled:cursor-not-allowed disabled:opacity-70"
+        >
+          {status === "submitting" ? (
+            <>
+              <LoaderCircle
+                size={16}
+                aria-hidden="true"
+                className="animate-spin"
+              />
+              Sending...
+            </>
+          ) : (
+            "Send enquiry"
+          )}
+        </button>
 
-          {/* Direct option, prefilled from the service and category chosen above */}
+        {/* A direct option, prefilled from the service and category chosen above */}
+        {whatsappLink && (
           <a
             href={whatsappLink}
             target="_blank"
@@ -527,10 +536,7 @@ export default function QuoteForm() {
             <MessageCircle size={16} aria-hidden="true" />
             Or message us on WhatsApp instead
           </a>
-        </div>
-        <p className="mt-4 text-sm text-obsidian/75">
-          Prototype: sending does not submit or save anything yet.
-        </p>
+        )}
       </div>
     </form>
   );

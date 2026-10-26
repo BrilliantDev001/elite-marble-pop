@@ -4,9 +4,9 @@ import Project from "../models/Project.js";
 import Category from "../models/Category.js";
 
 export const REVIEW_THANKS =
-  "Thank you. Your review has been received and will appear on the website once the owner has approved it.";
+  "Thank you for sharing your experience. Your review is very much appreciated, it has been received and will appear on the website once the owner has approved it.";
 export const ENQUIRY_THANKS =
-  "Thank you. Your enquiry has been received. We will get back to you using your preferred contact method.";
+  "Thank you for your enquiry. It has been received and we will get back to you using your preferred contact method.";
 
 const DEFAULT_PAGE_SIZE = 12;
 const DEFAULT_FEATURED = 3;
@@ -19,7 +19,7 @@ export async function listReviews(req, res) {
 
   const [total, reviews] = await Promise.all([
     Review.countDocuments(filter),
-    Review.find(filter)
+    -Review.find(filter)
       .sort({ createdAt: -1, _id: -1 })
       .skip((page - 1) * limit)
       .limit(limit),

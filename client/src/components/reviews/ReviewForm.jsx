@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { CircleAlert, LoaderCircle, Star } from "lucide-react";
 import FormField, { FieldError } from "../shared/FormField";
-import { inputClass } from "../shared/formStyles";
+import HoneypotField from "../shared/HoneypotField";
+import useApi from "../../hooks/useApi";
+import { useSettings } from "../../context/settingsContext";
+import { apiRequest } from "../../services/api";
 import { services } from "../../data/services";
-import { getPublishedProjects } from "../../data/projects";
+import { getWhatsAppLink } from "../../data/siteConfig";
+import { countLinks } from "../../utils/forms";
 
-const ALLOWED_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
-const MAX_PHOTO_BYTES = 5 * 1024 * 1024; // 5 MB
 const MAX_REVIEW_LENGTH = 1000;
 
 const emptyValues = {
@@ -16,8 +18,7 @@ const emptyValues = {
   text: "",
   service: "",
   projectSlug: "",
-  photo: null,
-  photoConsent: false,
+  website: "", // the hidden spam trap. It must stay empty for real visitors.
 };
 
 // When a form is submitted with mistakes, focus goes to the FIRST problem field.
@@ -27,12 +28,10 @@ const FOCUS_ORDER = [
   ["rating", "rating-1"],
   ["text", "text"],
   ["service", "service"],
-  ["photo", "photo"],
-  ["photoConsent", "photoConsent"],
+  ["projectSlug", "projectSlug"],
 ];
 
-// Checks every field and returns an object of error messages (empty = all good).
-// The real backend must run its own checks too. This is only for quick feedback.
+// Quick checks in the browser, for fast feedback. The server checks everything again.
 function validate(values) {
   const errors = {};
 
@@ -49,21 +48,11 @@ function validate(values) {
   if (!text) errors.text = "Please write your review.";
   else if (text.length < 20)
     errors.text = "Please write at least 20 characters.";
+  else if (countLinks(text) > 0)
+    errors.text = "Please remove web links from your message.";
 
   if (!values.service)
     errors.service = "Please choose the service this review is about.";
-
-  if (values.photo) {
-    if (!ALLOWED_PHOTO_TYPES.includes(values.photo.type)) {
-      errors.photo = "Please choose a JPG, PNG or WebP image.";
-    } else if (values.photo.size > MAX_PHOTO_BYTES) {
-      errors.photo =
-        "This photo is larger than 5 MB. Please choose a smaller one.";
-    } else if (!values.photoConsent) {
-      errors.photoConsent =
-        "Please confirm you are happy for the photo to be used.";
-    }
-  }
 
   return errors;
 }
@@ -72,20 +61,18 @@ export default function ReviewForm() {
   const [values, setValues] = useState(emptyValues);
   const [errors, setErrors] = useState({});
   const [status, setStatus] = useState("idle"); // idle | submitting | error | success
-  const [fileInputKey, setFileInputKey] = useState(0); // changing it empties the file input
-
-  const timerRef = useRef(null);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [thanks, setThanks] = useState("");
   const successRef = useRef(null);
 
-  // Dev only: add ?state=error to the URL to preview the error message.
-  const [searchParams] = useSearchParams();
-  const simulateError =
-    import.meta.env.DEV && searchParams.get("state") === "error";
+  const { contact } = useSettings();
 
-  const projects = getPublishedProjects();
-
-  // Stop the pretend-sending timer if the visitor leaves the page.
-  useEffect(() => () => clearTimeout(timerRef.current), []);
+  // Every published project, for the optional "which project is this about?" menu.
+  const projectsRequest = useApi("/api/projects/options");
+  const allProjects = projectsRequest.data?.items ?? [];
+  const projectOptions = values.service
+    ? allProjects.filter((project) => project.service === values.service)
+    : allProjects;
 
   // Move focus to the success message so screen reader users hear it.
   useEffect(() => {
@@ -98,13 +85,28 @@ export default function ReviewForm() {
     setErrors((current) => ({ ...current, [name]: undefined }));
   }
 
-  function handlePhotoChange(event) {
-    const file = event.target.files[0] ?? null;
-    setField("photo", file);
-    if (!file) setField("photoConsent", false);
+  // Changing the service clears the chosen project if it belongs to the other service.
+  function handleServiceChange(value) {
+    setValues((current) => {
+      const stillValid = allProjects.some(
+        (project) =>
+          project.slug === current.projectSlug &&
+          (!value || project.service === value),
+      );
+      return {
+        ...current,
+        service: value,
+        projectSlug: stillValid ? current.projectSlug : "",
+      };
+    });
+    setErrors((current) => ({
+      ...current,
+      service: undefined,
+      projectSlug: undefined,
+    }));
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
     if (status === "submitting") return;
 
@@ -117,17 +119,44 @@ export default function ReviewForm() {
       return;
     }
 
-    // PROTOTYPE: nothing is sent anywhere. We only pretend to wait.
     setStatus("submitting");
-    timerRef.current = setTimeout(() => {
-      setStatus(simulateError ? "error" : "success");
-    }, 1200);
+    setErrorMessage("");
+
+    try {
+      const data = await apiRequest("/api/reviews", {
+        method: "POST",
+        body: {
+          name: values.name,
+          rating: values.rating,
+          text: values.text,
+          service: values.service,
+          projectSlug: values.projectSlug,
+          website: values.website,
+        },
+      });
+      // We only say "thank you" now, after the server has really confirmed the save.
+      setThanks(data.message);
+      setStatus("success");
+    } catch (error) {
+      // The server found problems with specific fields: show them next to the fields.
+      const serverErrors = error.fields ?? {};
+      const first = FOCUS_ORDER.find(([key]) => serverErrors[key]);
+
+      if (first) {
+        setErrors(serverErrors);
+        setStatus("idle");
+        document.getElementById(first[1])?.focus();
+      } else {
+        setErrorMessage(error.message);
+        setStatus("error");
+      }
+    }
   }
 
   function handleReset() {
     setValues(emptyValues);
     setErrors({});
-    setFileInputKey((key) => key + 1);
+    setErrorMessage("");
     setStatus("idle");
   }
 
@@ -140,14 +169,9 @@ export default function ReviewForm() {
           tabIndex={-1}
           className="text-3xl font-medium focus:outline-none"
         >
-          Thank you. This is a prototype.
+          Thank you.
         </h2>
-        <p className="mt-4 text-obsidian/85">
-          Your review has <strong>not</strong> been sent or saved anywhere,
-          because the website is not connected to a backend yet. Once it is,
-          every review will be held for the owner's approval and will only
-          appear publicly after it has been approved.
-        </p>
+        <p className="mt-4 text-obsidian/85">{thanks}</p>
         <div className="mt-8 flex flex-col gap-4 sm:flex-row">
           <button type="button" onClick={handleReset} className="btn-outline">
             Write another review
@@ -164,6 +188,11 @@ export default function ReviewForm() {
   return (
     // noValidate turns off the browser's own pop-up messages so ours are shown instead
     <form onSubmit={handleSubmit} noValidate className="space-y-8">
+      <HoneypotField
+        value={values.website}
+        onChange={(value) => setField("website", value)}
+      />
+
       <p className="text-sm text-obsidian/75">
         All fields are required unless marked optional.
       </p>
@@ -252,7 +281,7 @@ export default function ReviewForm() {
             <select
               {...fieldProps}
               value={values.service}
-              onChange={(event) => setField("service", event.target.value)}
+              onChange={(event) => handleServiceChange(event.target.value)}
             >
               <option value="">Choose a service</option>
               {services.map((service) => (
@@ -264,15 +293,30 @@ export default function ReviewForm() {
           )}
         </FormField>
 
-        <FormField id="projectSlug" label="Project" required={false}>
+        <FormField
+          id="projectSlug"
+          label="Project"
+          required={false}
+          error={errors.projectSlug}
+          hint={
+            projectsRequest.status === "error"
+              ? "Projects could not be loaded. You can still send your review."
+              : undefined
+          }
+        >
           {(fieldProps) => (
             <select
               {...fieldProps}
+              disabled={projectsRequest.status !== "ready"}
               value={values.projectSlug}
               onChange={(event) => setField("projectSlug", event.target.value)}
             >
-              <option value="">Not about a specific project</option>
-              {projects.map((project) => (
+              <option value="">
+                {projectsRequest.status === "loading"
+                  ? "Loading projects..."
+                  : "Not about a specific project"}
+              </option>
+              {projectOptions.map((project) => (
                 <option key={project.slug} value={project.slug}>
                   {project.title}
                 </option>
@@ -282,57 +326,24 @@ export default function ReviewForm() {
         </FormField>
       </div>
 
-      <div className="space-y-4">
-        <FormField
-          id="photo"
-          label="Add a photo"
-          required={false}
-          error={errors.photo}
-          hint="JPG, PNG or WebP, up to 5 MB."
-        >
-          {(fieldProps) => (
-            <input
-              {...fieldProps}
-              key={fileInputKey}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              onChange={handlePhotoChange}
-              className={`${inputClass(Boolean(errors.photo))} file:mr-4 file:border-0 file:bg-obsidian file:px-4 file:py-2 file:text-sm file:text-ivory`}
-            />
-          )}
-        </FormField>
-
-        {/* The consent box only appears once a photo has been chosen */}
-        {values.photo && (
-          <div>
-            <div className="flex items-start gap-3">
-              <input
-                type="checkbox"
-                id="photoConsent"
-                checked={values.photoConsent}
-                onChange={(event) =>
-                  setField("photoConsent", event.target.checked)
-                }
-                aria-describedby={
-                  errors.photoConsent ? "photoConsent-error" : undefined
-                }
-                aria-invalid={errors.photoConsent ? true : undefined}
-                className="mt-1 h-5 w-5 shrink-0 accent-obsidian"
-              />
-              <label htmlFor="photoConsent" className="text-sm">
-                I took this photo or have permission to share it, and I am happy
-                for ELITE to publish it with my review once it has been
-                approved.
-              </label>
-            </div>
-            {errors.photoConsent && (
-              <FieldError id="photoConsent-error">
-                {errors.photoConsent}
-              </FieldError>
+      {/* Reviews are text only. Photos can be sent on WhatsApp instead. */}
+      {contact && (
+        <p className="text-sm text-obsidian/80">
+          Have a photo of the finished work? You can send it to us on{" "}
+          <a
+            href={getWhatsAppLink(
+              "Hello ELITE, I would like to share a photo of the finished work.",
+              contact,
             )}
-          </div>
-        )}
-      </div>
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold underline underline-offset-4"
+          >
+            WhatsApp
+          </a>
+          .
+        </p>
+      )}
 
       {status === "error" && (
         <div
@@ -344,10 +355,7 @@ export default function ReviewForm() {
             aria-hidden="true"
             className="mt-0.5 shrink-0 text-red-800"
           />
-          <p>
-            We could not send your review. Please check your connection and try
-            again.
-          </p>
+          <p>{errorMessage}</p>
         </div>
       )}
 
@@ -372,7 +380,7 @@ export default function ReviewForm() {
           )}
         </button>
         <p className="mt-4 text-sm text-obsidian/75">
-          Prototype: submitting does not send or save anything yet.
+          Every review is checked by the owner before it appears on the website.
         </p>
       </div>
     </form>
