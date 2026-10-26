@@ -1,17 +1,22 @@
 import { useRef, useState } from "react";
-import { useOutletContext } from "react-router-dom";
-import FormField from "../shared/FormField";
+import { LoaderCircle } from "lucide-react";
+import FormField, { FieldError } from "../shared/FormField";
+import LoadError from "../shared/LoadError";
+import AdminFeedback from "./AdminFeedback";
+import useApi from "../../hooks/useApi";
 import usePageMeta from "../../hooks/usePageMeta";
+import { useSettings } from "../../context/settingsContext";
+import { apiRequest } from "../../services/api";
 
-// Checks every field and returns an object of error messages (empty = all good).
-// The real backend must run its own checks too. This is only for quick feedback.
+const FIELDS = ["phoneDisplay", "whatsappNumber", "email", "address"];
+
+// Quick checks in the browser. The server checks everything again.
 function validate(values) {
   const errors = {};
 
   const phone = values.phoneDisplay.trim();
-  const phoneDigits = phone.replace(/[\s\-()]/g, "");
   if (!phone) errors.phoneDisplay = "Please enter the business phone number.";
-  else if (!/^\+?\d{7,15}$/.test(phoneDigits)) {
+  else if (!/^\+?\d{7,15}$/.test(phone.replace(/[\s\-()]/g, ""))) {
     errors.phoneDisplay =
       "Please enter a valid phone number, for example +234 800 000 0000.";
   }
@@ -34,79 +39,96 @@ function validate(values) {
   return errors;
 }
 
-export default function AdminSettings() {
-  usePageMeta("Admin: Settings");
+// The form. It starts from the details the server sent.
+function SettingsForm({ initial }) {
+  const { reload: reloadPublicSettings } = useSettings();
 
-  const { settings, setSettings } = useOutletContext();
-  const [values, setValues] = useState(settings);
+  const [saved, setSaved] = useState(initial); // what the server currently holds
+  const [values, setValues] = useState(initial);
   const [errors, setErrors] = useState({});
-  const [message, setMessage] = useState("");
-  const messageRef = useRef(null);
+  const [formError, setFormError] = useState("");
+  const [feedback, setFeedback] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const feedbackRef = useRef(null);
 
-  const hasChanges = Object.keys(values).some(
-    (key) => values[key] !== settings[key],
+  const hasChanges = FIELDS.some(
+    (field) => values[field].trim() !== saved[field],
   );
 
   function setField(name, value) {
     setValues((current) => ({ ...current, [name]: value }));
     setErrors((current) => ({ ...current, [name]: undefined }));
+    setFormError("");
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
+    if (submitting) return;
 
     const found = validate(values);
     setErrors(found);
+    setFormError("");
+    setFeedback(null);
 
-    const order = ["phoneDisplay", "whatsappNumber", "email", "address"];
-    const firstProblem = order.find((key) => found[key]);
+    const firstProblem = FIELDS.find((field) => found[field]);
     if (firstProblem) {
       document.getElementById(firstProblem)?.focus();
       return;
     }
 
-    const cleaned = {
-      phoneDisplay: values.phoneDisplay.trim(),
-      whatsappNumber: values.whatsappNumber.trim(),
-      email: values.email.trim(),
-      address: values.address.trim(),
-    };
-    setSettings(cleaned);
-    setValues(cleaned);
-    setMessage("Settings saved for this session.");
-    messageRef.current?.focus();
+    // Send only what changed.
+    const changes = {};
+    for (const field of FIELDS) {
+      const value = values[field].trim();
+      if (value !== saved[field]) changes[field] = value;
+    }
+    if (Object.keys(changes).length === 0) {
+      setFormError("Nothing has changed yet.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const data = await apiRequest("/api/admin/settings", {
+        method: "PATCH",
+        body: changes,
+      });
+      const next = Object.fromEntries(
+        FIELDS.map((field) => [field, data.settings[field]]),
+      );
+      setSaved(next);
+      setValues(next);
+      setFeedback({
+        type: "success",
+        text: "Settings saved. The website now shows these contact details.",
+      });
+      reloadPublicSettings(); // so the public pages show the new details straight away
+      feedbackRef.current?.focus();
+    } catch (error) {
+      const serverErrors = error.fields ?? {};
+      const first = FIELDS.find((field) => serverErrors[field]);
+      if (first) {
+        setErrors(serverErrors);
+        document.getElementById(first)?.focus();
+      } else {
+        setFormError(error.message);
+      }
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   function handleDiscard() {
-    setValues(settings);
+    setValues(saved);
     setErrors({});
-    setMessage("Changes discarded.");
-    messageRef.current?.focus();
+    setFormError("");
+    setFeedback({ type: "success", text: "Changes discarded." });
+    feedbackRef.current?.focus();
   }
 
   return (
-    <div>
-      <h1 className="text-4xl font-medium md:text-5xl">Settings</h1>
-      <p className="mt-3 max-w-2xl text-obsidian/80">
-        Your business contact details. These will appear in the website footer,
-        the contact page and the WhatsApp and phone buttons.
-      </p>
-      <p className="mt-3 max-w-2xl text-sm text-obsidian/70">
-        Prototype note: the values below are placeholders, and changes here do
-        not alter the public pages of this demo site. Other website text stays
-        in the code for now, which keeps the first version simple.
-      </p>
-
-      <p
-        ref={messageRef}
-        role="status"
-        tabIndex={-1}
-        className={`mt-6 border-l-2 border-gold pl-4 text-sm focus:outline-none ${
-          message ? "" : "sr-only"
-        }`}
-      >
-        {message}
-      </p>
+    <>
+      <AdminFeedback feedback={feedback} ref={feedbackRef} />
 
       <form
         onSubmit={handleSubmit}
@@ -177,7 +199,7 @@ export default function AdminSettings() {
           )}
         </FormField>
 
-        {/* Shows how the link will be built, so a typo is easy to spot */}
+        {/* Shows how the links will be built, so a typo is easy to spot */}
         <div className="border border-obsidian/20 p-5 text-sm">
           <p className="font-semibold">
             Links that will be built from these details
@@ -193,20 +215,85 @@ export default function AdminSettings() {
           </ul>
         </div>
 
+        {formError && (
+          <div role="alert">
+            <FieldError>{formError}</FieldError>
+          </div>
+        )}
+
         <div className="flex flex-col gap-4 border-t border-obsidian/20 pt-8 sm:flex-row">
-          <button type="submit" className="btn-primary">
-            Save settings
+          <button
+            type="submit"
+            disabled={submitting}
+            aria-busy={submitting}
+            className="btn-primary disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {submitting ? (
+              <>
+                <LoaderCircle
+                  size={16}
+                  aria-hidden="true"
+                  className="animate-spin"
+                />
+                Saving...
+              </>
+            ) : (
+              "Save settings"
+            )}
           </button>
           <button
             type="button"
             onClick={handleDiscard}
-            disabled={!hasChanges}
+            disabled={!hasChanges || submitting}
             className="btn-outline disabled:cursor-not-allowed disabled:opacity-50"
           >
             Discard changes
           </button>
         </div>
       </form>
+    </>
+  );
+}
+
+export default function AdminSettings() {
+  usePageMeta("Admin: Settings");
+
+  const { status, data, reload } = useApi("/api/admin/settings");
+
+  return (
+    <div>
+      <h1 className="text-4xl font-medium md:text-5xl">Settings</h1>
+      <p className="mt-3 max-w-2xl text-obsidian/80">
+        Your business contact details. They appear in the website footer, on the
+        contact page and in the WhatsApp and phone buttons. Other website text
+        stays in the code for now, which keeps the first version simple.
+      </p>
+
+      {status === "loading" && (
+        <div className="mt-10 max-w-2xl space-y-8">
+          <p className="sr-only" role="status">
+            Loading settings...
+          </p>
+          {[0, 1, 2].map((index) => (
+            <div
+              key={index}
+              aria-hidden="true"
+              className="h-16 animate-pulse bg-stone/20"
+            />
+          ))}
+        </div>
+      )}
+
+      {status === "error" && (
+        <div className="mt-10">
+          <LoadError
+            message="We could not load the settings."
+            onRetry={reload}
+          />
+        </div>
+      )}
+
+      {status === "ready" && <SettingsForm initial={data.settings} />}
     </div>
   );
 }
