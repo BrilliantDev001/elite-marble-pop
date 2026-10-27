@@ -13,15 +13,13 @@ import AdminProjects from "../components/admin/AdminProjects";
 import AdminProjectForm from "../components/admin/AdminProjectForm";
 import usePageMeta from "../hooks/usePageMeta";
 
-// TEMPORARY: each screen is replaced by the real one in the next steps.
-function AdminSectionStub({ title }) {
-  usePageMeta(`Admin: ${title}`);
+// Shown for an admin address that does not exist, inside the admin frame.
+function AdminNotFound() {
+  usePageMeta("Admin: Page not found");
   return (
     <div>
-      <h1 className="text-4xl font-medium md:text-5xl">{title}</h1>
-      <p className="mt-3 text-obsidian/80">
-        This screen is being connected to the real data in the next steps.
-      </p>
+      <h1 className="text-4xl font-medium md:text-5xl">Page not found</h1>
+      <p className="mt-3 text-obsidian/80">This admin page does not exist. Use the menu to go somewhere else.</p>
     </div>
   );
 }
@@ -72,7 +70,7 @@ function AdminGate() {
         <Route path="reviews" element={<AdminReviews />} />
         <Route path="enquiries" element={<AdminEnquiries />} />
         <Route path="settings" element={<AdminSettings />} />
-        <Route path="*" element={<AdminSectionStub title="Page not found" />} />
+        <Route path="*" element={<AdminNotFound />} />
       </Route>
     </Routes>
   );

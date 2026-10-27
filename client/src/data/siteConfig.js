@@ -8,14 +8,10 @@ export const siteConfig = {
   descriptor: "MARBLE & POP WORKS LTD.",
   positioning: "PREMIUM INTERIOR FINISHING",
 
-  contact: {
-    isPlaceholder: true,
-    phoneDisplay: "+234 800 000 0000",
-    phoneHref: "+2348000000000", // used in tel: links
-    whatsappNumber: "2348000000000", // digits only, no + sign
-    email: "example@gmail.com",
-    address: "12 Sample Street, Ikeja, Lagos, Nigeria", // generic placeholder
-  },
+  // The contact details now come from the API (the owner edits them in Admin > Settings).
+  // This is the FAKE WhatsApp number the API starts with. It is kept ONLY so the site can remind
+  // you, in development, that real contact details have not been entered yet.
+  placeholderWhatsappNumber: "2348000000000",
 
   quoteCtaLabel: "Request a Personalized Quote",
 
@@ -44,18 +40,18 @@ export const navLinks = [
 // Usage: getWhatsAppLink("Hello ELITE, I'd like a quote for Kitchen Countertops.")
 export function getWhatsAppLink(
   message = "Hello ELITE, I would like to request a quote.",
-  contact = siteConfig.contact,
+  contact,
 ) {
   return `https://wa.me/${contact.whatsappNumber}?text=${encodeURIComponent(message)}`;
 }
 
 // Builds a phone link: <a href={getPhoneLink()}>
-export function getPhoneLink(contact = siteConfig.contact) {
+export function getPhoneLink(contact) {
   return `tel:${contact.phoneHref}`;
 }
 
 // True while the contact details are still the fake placeholders from this file.
 // Only used for a reminder that is shown in development.
 export function isPlaceholderContact(contact) {
-  return contact?.whatsappNumber === siteConfig.contact.whatsappNumber;
+  return contact?.whatsappNumber === siteConfig.placeholderWhatsappNumber;
 }

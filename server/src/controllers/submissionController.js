@@ -17,12 +17,14 @@ export async function listReviews(req, res) {
   const { page = 1, limit = DEFAULT_PAGE_SIZE } = res.locals.query;
   const filter = { status: "approved" };
 
+  // .exec() makes each query a real promise, so Promise.all always receives plain results.
   const [total, reviews] = await Promise.all([
-    Review.countDocuments(filter),
-    -Review.find(filter)
+    Review.countDocuments(filter).exec(),
+    Review.find(filter)
       .sort({ createdAt: -1, _id: -1 })
       .skip((page - 1) * limit)
-      .limit(limit),
+      .limit(limit)
+      .exec(),
   ]);
 
   const totalPages = Math.ceil(total / limit);
