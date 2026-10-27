@@ -1,22 +1,20 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  Link,
-  useNavigate,
-  useOutletContext,
-  useParams,
-} from "react-router-dom";
-import { ArrowDown, ArrowUp, Eye, EyeOff } from "lucide-react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { ArrowDown, ArrowUp, Eye, EyeOff, LoaderCircle } from "lucide-react";
 import FormField, { FieldError } from "../shared/FormField";
 import { inputClass } from "../shared/formStyles";
 import SiteImage from "../shared/SiteImage";
+import LoadError from "../shared/LoadError";
+import useApi from "../../hooks/useApi";
 import usePageMeta from "../../hooks/usePageMeta";
+import { apiRequest } from "../../services/api";
+import { toImage } from "../../services/mappers";
+import { checkPhotoFile, uploadPhoto } from "../../services/uploads";
 import { services, getServiceBySlug } from "../../data/services";
-import { getProjectImages } from "../../data/projects";
-import { slugify, todayISO } from "../../data/adminMock";
+import { slugify } from "../../utils/text";
 
-const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
-const MAX_BYTES = 5 * 1024 * 1024; // 5 MB per photo
-const MAX_PHOTOS = 20;
+const MAX_PHOTOS = 20; // cover + extra photos, the same limit as the server
+const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 const STATUS_OPTIONS = [
   { value: "draft", label: "Draft (not public)" },
@@ -24,20 +22,39 @@ const STATUS_OPTIONS = [
   { value: "archived", label: "Archived (hidden, kept for records)" },
 ];
 
-// When the form is submitted with mistakes, focus goes to the FIRST problem field,
-// in the same order as the form. Photo description errors are handled after these.
-const FOCUS_ORDER = [
-  ["title", "title"],
-  ["slug", "slug"],
-  ["service", "service"],
-  ["category", "category"],
-  ["photos", "photo-input"],
-];
+// The server names photo errors "coverImage.url", "images.0.alt" and so on. The cover is photo 1.
+// photoErrorKey(0, "alt") -> "coverImage.alt";  photoErrorKey(2, "url") -> "images.1.url"
+function photoErrorKey(index, part) {
+  return index === 0 ? `coverImage.${part}` : `images.${index - 1}.${part}`;
+}
 
-// Checks every field and returns an object of error messages (empty = all good).
-// The real backend must run its own checks too. This is only for quick feedback.
-function validate({ values, photos, projects, categories, existing }) {
-  const errors = { alts: {} };
+// Works out which field to focus first, for both browser-side and server-side messages.
+function firstProblemId(errors, photos) {
+  const fields = [
+    ["title", "title"],
+    ["slug", "slug"],
+    ["service", "service"],
+    ["category", "category"],
+    ["description", "description"],
+    ["details", "details"],
+    ["location", "location"],
+    ["photos", "photo-input"],
+    ["images", "photo-input"],
+    ["status", "status"],
+  ];
+  for (const [key, id] of fields) if (errors[key]) return id;
+
+  for (let index = 0; index < photos.length; index += 1) {
+    if (errors[photoErrorKey(index, "alt")]) return `alt-${photos[index].key}`;
+    if (errors[photoErrorKey(index, "url")])
+      return `remove-${photos[index].key}`;
+  }
+  return null;
+}
+
+// Quick checks in the browser. The server checks everything again.
+function validate(values, photos) {
+  const errors = {};
 
   const title = values.title.trim();
   if (!title) errors.title = "Please enter a project title.";
@@ -47,41 +64,27 @@ function validate({ values, photos, projects, categories, existing }) {
     errors.title = "The title must be 100 characters or fewer.";
 
   const slug = values.slug.trim();
-  if (!slug) {
-    errors.slug = "The web address cannot be empty.";
-  } else if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
+  if (slug && !SLUG_PATTERN.test(slug)) {
     errors.slug =
       "Use only lowercase letters, numbers and single dashes, for example marble-kitchen-island.";
-  } else if (
-    projects.some(
-      (project) => project.slug === slug && project.id !== existing?.id,
-    )
-  ) {
+  } else if (slug === "options") {
     errors.slug =
-      "Another project already uses this web address. Please change it.";
+      "This web address is reserved. Please choose a different one.";
   }
 
   if (!values.service) errors.service = "Please choose Marble or POP.";
+  if (!values.category) errors.category = "Please choose a category.";
 
-  if (!values.category) {
-    errors.category = "Please choose a category.";
-  } else if (
-    !categories.some(
-      (c) => c.slug === values.category && c.service === values.service,
-    )
-  ) {
-    errors.category =
-      "This category does not belong to the chosen service. Please choose again.";
-  }
-
-  if (photos.length === 0) {
+  if (photos.length === 0)
     errors.photos =
       "Please add at least one photo. The first photo is the cover.";
+  else if (photos.some((photo) => photo.state === "uploading")) {
+    errors.photos = "Please wait until all photos have finished uploading.";
   }
 
   photos.forEach((photo, index) => {
-    if (!photo.alt.trim()) {
-      errors.alts[photo.key] =
+    if (photo.state === "ready" && !photo.alt.trim()) {
+      errors[photoErrorKey(index, "alt")] =
         `Please describe photo ${index + 1} for people who cannot see it.`;
     }
   });
@@ -89,21 +92,25 @@ function validate({ values, photos, projects, categories, existing }) {
   return errors;
 }
 
-// ---------- Wrapper: finds the project (when editing) and shows "not found" if needed ----------
+// ---------- Wrapper: loads the project (when editing) and the categories ----------
 export default function AdminProjectForm() {
   const { id } = useParams(); // undefined on /admin/projects/new
-  const { projects } = useOutletContext();
-  const existing = id ? projects.find((project) => project.id === id) : null;
+  const isEditing = Boolean(id);
 
-  usePageMeta(id ? "Admin: Edit project" : "Admin: Add project");
+  const projectRequest = useApi(isEditing ? `/api/admin/projects/${id}` : null);
+  const categoriesRequest = useApi("/api/admin/categories");
 
-  if (id && !existing) {
+  usePageMeta(isEditing ? "Admin: Edit project" : "Admin: Add project");
+
+  if (
+    isEditing &&
+    projectRequest.status === "error" &&
+    projectRequest.error?.status === 404
+  ) {
     return (
       <div>
         <h1 className="text-4xl font-medium md:text-5xl">Project not found</h1>
-        <p className="mt-3 text-obsidian/80">
-          This project does not exist in the prototype data.
-        </p>
+        <p className="mt-3 text-obsidian/80">This project does not exist.</p>
         <Link to="/admin/projects" className="btn-outline mt-8">
           Back to projects
         </Link>
@@ -111,14 +118,45 @@ export default function AdminProjectForm() {
     );
   }
 
+  if (
+    projectRequest.status === "error" ||
+    categoriesRequest.status === "error"
+  ) {
+    return (
+      <LoadError
+        message="We could not load this page."
+        onRetry={() => {
+          projectRequest.reload();
+          categoriesRequest.reload();
+        }}
+      />
+    );
+  }
+
+  if (
+    projectRequest.status === "loading" ||
+    categoriesRequest.status === "loading"
+  ) {
+    return (
+      <p role="status" className="text-obsidian/80">
+        Loading...
+      </p>
+    );
+  }
+
   // "key" makes React start with a fresh form whenever the project changes.
-  return <ProjectFormBody key={id ?? "new"} existing={existing} />;
+  return (
+    <ProjectFormBody
+      key={id ?? "new"}
+      existing={projectRequest.data?.project ?? null}
+      categories={categoriesRequest.data.items}
+    />
+  );
 }
 
 // ---------- The form itself ----------
-function ProjectFormBody({ existing }) {
+function ProjectFormBody({ existing, categories }) {
   const navigate = useNavigate();
-  const { projects, setProjects, categories } = useOutletContext();
   const isEditing = Boolean(existing);
 
   const [values, setValues] = useState(() => ({
@@ -133,37 +171,50 @@ function ProjectFormBody({ existing }) {
     status: existing?.status ?? "draft",
   }));
 
-  // All photos in one list. The FIRST photo is the cover.
-  // Each item: { key, src, alt, caption, isPlaceholder, fileId? }
+  // All photos in one list. The FIRST photo is the cover. Each item:
+  //   { key, state: "ready" | "uploading", url, fileId, alt, caption, name }
   const [photos, setPhotos] = useState(() =>
     existing
-      ? getProjectImages(existing).map((image, index) => ({
-          ...image,
-          key: `existing-${index}`,
+      ? [existing.coverImage, ...existing.images].map((photo, index) => ({
+          key: `saved-${index}`,
+          state: "ready",
+          url: photo.url,
+          fileId: photo.fileId ?? "",
+          alt: photo.alt,
+          caption: photo.caption ?? "",
+          name: "",
         }))
       : [],
   );
 
-  // Once the slug has been typed by hand (or the project already exists),
-  // we stop rewriting it from the title. Existing projects keep their web address.
+  // Once the web address has been typed by hand (or the project already exists), we stop
+  // rewriting it from the title. An existing project keeps its address unless changed on purpose.
   const [slugEdited, setSlugEdited] = useState(isEditing);
-  const [errors, setErrors] = useState({ alts: {} });
+  const [errors, setErrors] = useState({});
+  const [formError, setFormError] = useState("");
   const [fileProblems, setFileProblems] = useState([]);
   const [photoMessage, setPhotoMessage] = useState("");
   const [showPreview, setShowPreview] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const pendingFocus = useRef(null);
   const photoMessageRef = useRef(null);
 
   const service = getServiceBySlug(values.service);
+  const uploadingCount = photos.filter(
+    (photo) => photo.state === "uploading",
+  ).length;
 
-  // Active categories for the chosen service, plus the project's current category
-  // (even if archived) so editing never silently breaks it.
+  // The categories for the chosen service. The project's current category is kept in the list
+  // even if it has been archived, so editing never silently breaks it.
   const categoryOptions = categories.filter(
-    (c) =>
-      c.service === values.service && (c.active || c.slug === values.category),
+    (category) =>
+      category.service === values.service &&
+      (category.active || category.slug === existing?.category),
   );
-  const selectedCategory = categories.find((c) => c.slug === values.category);
+  const selectedCategory = categories.find(
+    (category) => category.slug === values.category,
+  );
 
   // After moving a photo, put focus back on the same kind of button for that photo.
   useEffect(() => {
@@ -182,6 +233,7 @@ function ProjectFormBody({ existing }) {
   function setField(name, value) {
     setValues((current) => ({ ...current, [name]: value }));
     setErrors((current) => ({ ...current, [name]: undefined }));
+    setFormError("");
   }
 
   function handleTitleChange(value) {
@@ -205,67 +257,98 @@ function ProjectFormBody({ existing }) {
   }
 
   // ---------- Photos ----------
-  function handleFilesChange(event) {
+  async function handleFilesChange(event) {
     const files = Array.from(event.target.files);
     event.target.value = ""; // lets the same file be chosen again later
+    if (files.length === 0) return;
 
     const problems = [];
     const accepted = [];
+    let room = MAX_PHOTOS - photos.length;
 
-    files.forEach((file) => {
-      const fileId = `${file.name}-${file.size}`;
-      const alreadyAdded =
-        photos.some((photo) => photo.fileId === fileId) ||
-        accepted.some((photo) => photo.fileId === fileId);
-
-      if (!ALLOWED_TYPES.includes(file.type)) {
-        problems.push(`"${file.name}" is not a JPG, PNG or WebP image.`);
-      } else if (file.size > MAX_BYTES) {
-        problems.push(`"${file.name}" is larger than 5 MB.`);
-      } else if (alreadyAdded) {
-        problems.push(`"${file.name}" has already been added.`);
-      } else {
-        accepted.push({
-          key: `new-${Date.now()}-${accepted.length}`,
-          fileId,
-          // PROTOTYPE: a temporary link to the file on this computer. Nothing is uploaded.
-          src: URL.createObjectURL(file),
-          alt: "",
-          caption: "",
-          isPlaceholder: false,
-        });
+    for (const file of files) {
+      const problem = checkPhotoFile(file);
+      if (problem) problems.push(problem);
+      else if (room <= 0)
+        problems.push(
+          `"${file.name}" was not added: a project can have up to ${MAX_PHOTOS} photos.`,
+        );
+      else {
+        accepted.push({ file, key: `new-${Date.now()}-${accepted.length}` });
+        room -= 1;
       }
-    });
-
-    const room = MAX_PHOTOS - photos.length;
-    const kept = accepted.slice(0, room);
-    accepted.slice(room).forEach((photo) => URL.revokeObjectURL(photo.src));
-    if (accepted.length > kept.length) {
-      problems.push(
-        `A project can have up to ${MAX_PHOTOS} photos. Some were not added.`,
-      );
     }
 
     setFileProblems(problems);
-    if (kept.length > 0) {
-      setPhotos((current) => [...current, ...kept]);
-      setErrors((current) => ({ ...current, photos: undefined }));
-      setPhotoMessage(
-        `Added ${kept.length} ${kept.length === 1 ? "photo" : "photos"}. Please describe each one below.`,
-      );
+    if (accepted.length === 0) return;
+
+    // Show a row for each photo straight away, then upload them one after another.
+    setPhotos((current) => [
+      ...current,
+      ...accepted.map(({ file, key }) => ({
+        key,
+        state: "uploading",
+        url: "",
+        fileId: "",
+        alt: "",
+        caption: "",
+        name: file.name,
+      })),
+    ]);
+    setErrors((current) => ({
+      ...current,
+      photos: undefined,
+      images: undefined,
+    }));
+    setFormError("");
+    setPhotoMessage(
+      `Uploading ${accepted.length} ${accepted.length === 1 ? "photo" : "photos"}...`,
+    );
+
+    let uploaded = 0;
+    const failed = [];
+
+    for (const { file, key } of accepted) {
+      try {
+        const result = await uploadPhoto(file, "project");
+        setPhotos((current) =>
+          current.map((photo) =>
+            photo.key === key
+              ? {
+                  ...photo,
+                  state: "ready",
+                  url: result.url,
+                  fileId: result.fileId,
+                }
+              : photo,
+          ),
+        );
+        uploaded += 1;
+      } catch (error) {
+        setPhotos((current) => current.filter((photo) => photo.key !== key));
+        failed.push(`"${file.name}": ${error.message}`);
+      }
     }
+
+    if (failed.length > 0)
+      setFileProblems((current) => [...current, ...failed]);
+    setPhotoMessage(
+      uploaded > 0
+        ? `Uploaded ${uploaded} ${uploaded === 1 ? "photo" : "photos"}. Please describe each one below.`
+        : "No photos were uploaded.",
+    );
   }
 
-  function updatePhoto(key, changes) {
+  function updatePhoto(index, changes) {
     setPhotos((current) =>
-      current.map((photo) =>
-        photo.key === key ? { ...photo, ...changes } : photo,
+      current.map((photo, position) =>
+        position === index ? { ...photo, ...changes } : photo,
       ),
     );
     if (changes.alt !== undefined) {
       setErrors((current) => ({
         ...current,
-        alts: { ...current.alts, [key]: undefined },
+        [photoErrorKey(index, "alt")]: undefined,
       }));
     }
   }
@@ -276,6 +359,7 @@ function ProjectFormBody({ existing }) {
     const next = [...photos];
     [next[index], next[target]] = [next[target], next[index]];
     setPhotos(next);
+    setErrors((current) => ({ ...current, photos: undefined }));
     pendingFocus.current = `photo-${next[target].key}-${direction === -1 ? "up" : "down"}`;
     setPhotoMessage(
       target === 0
@@ -285,82 +369,140 @@ function ProjectFormBody({ existing }) {
   }
 
   function makeCover(index) {
-    const next = [photos[index], ...photos.filter((_, i) => i !== index)];
+    const next = [
+      photos[index],
+      ...photos.filter((_, position) => position !== index),
+    ];
     setPhotos(next);
     pendingFocus.current = `photo-${next[0].key}-down`;
     setPhotoMessage("This is now the cover photo.");
   }
 
   function removePhoto(index) {
-    const photo = photos[index];
-    if (photo.fileId) URL.revokeObjectURL(photo.src); // only for photos added in this session
-    setPhotos(photos.filter((_, i) => i !== index));
+    setPhotos(photos.filter((_, position) => position !== index));
     setPhotoMessage(`Removed photo ${index + 1}.`);
     photoMessageRef.current?.focus(); // the button we were on has gone, so focus the message
   }
 
   // ---------- Saving ----------
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
+    if (submitting) return;
 
-    const found = validate({ values, photos, projects, categories, existing });
+    const found = validate(values, photos);
     setErrors(found);
+    setFormError("");
 
-    const firstField = FOCUS_ORDER.find(([key]) => found[key]);
-    const firstPhoto = photos.find((photo) => found.alts[photo.key]);
-    if (firstField) {
-      document.getElementById(firstField[1])?.focus();
-      return;
-    }
-    if (firstPhoto) {
-      document.getElementById(`alt-${firstPhoto.key}`)?.focus();
+    const problemId = firstProblemId(found, photos);
+    if (problemId) {
+      document.getElementById(problemId)?.focus();
       return;
     }
 
     const cleanPhotos = photos.map((photo) => ({
-      src: photo.src,
+      url: photo.url,
+      fileId: photo.fileId,
       alt: photo.alt.trim(),
       caption: photo.caption.trim(),
-      isPlaceholder: photo.isPlaceholder,
     }));
 
-    const saved = {
-      ...(existing ?? {}),
-      id: existing?.id ?? `p${Date.now()}`,
-      title: values.title.trim(),
-      slug: values.slug.trim(),
-      service: values.service,
-      category: values.category,
-      description: values.description.trim(),
-      details: values.details.trim(),
-      coverImage: cleanPhotos[0],
-      images: cleanPhotos.slice(1),
-      location: values.location.trim() || null,
-      featured: values.featured,
-      status: values.status,
-      isSample: existing?.isSample ?? false,
-      createdAt: existing?.createdAt ?? todayISO(),
-      updatedAt: todayISO(),
-    };
+    let path = "/api/admin/projects";
+    let method = "POST";
+    let body;
 
-    setProjects((current) =>
-      isEditing
-        ? current.map((project) => (project.id === saved.id ? saved : project))
-        : [saved, ...current],
-    );
+    if (!isEditing) {
+      body = {
+        title: values.title.trim(),
+        service: values.service,
+        category: values.category,
+        description: values.description.trim(),
+        details: values.details.trim(),
+        location: values.location.trim(),
+        coverImage: cleanPhotos[0],
+        images: cleanPhotos.slice(1),
+        featured: values.featured,
+        status: values.status,
+      };
+      // Left out when empty, so the server makes the address from the title.
+      if (values.slug.trim()) body.slug = values.slug.trim();
+    } else {
+      // Send only what changed.
+      const changes = {};
+      const text = {
+        title: values.title.trim(),
+        description: values.description.trim(),
+        details: values.details.trim(),
+        location: values.location.trim(),
+      };
+      if (text.title !== existing.title) changes.title = text.title;
+      if (values.slug.trim() && values.slug.trim() !== existing.slug)
+        changes.slug = values.slug.trim();
+      if (values.service !== existing.service) changes.service = values.service;
+      if (values.category !== existing.category)
+        changes.category = values.category;
+      if (text.description !== (existing.description ?? ""))
+        changes.description = text.description;
+      if (text.details !== (existing.details ?? ""))
+        changes.details = text.details;
+      if (text.location !== (existing.location ?? ""))
+        changes.location = text.location;
+      if (values.featured !== existing.featured)
+        changes.featured = values.featured;
+      if (values.status !== existing.status) changes.status = values.status;
 
-    navigate("/admin/projects", {
-      state: {
-        message: isEditing
-          ? `Saved changes to "${saved.title}" (${saved.status}).`
-          : `Created "${saved.title}" as ${saved.status}.`,
-      },
-    });
+      // Photos: if anything about them changed (a new photo, the order, alt text or captions),
+      // send the whole set. The server checks only the photos that are new.
+      const savedPhotos = [existing.coverImage, ...existing.images].map(
+        (photo) => ({
+          url: photo.url,
+          fileId: photo.fileId ?? "",
+          alt: photo.alt,
+          caption: photo.caption ?? "",
+        }),
+      );
+      if (JSON.stringify(cleanPhotos) !== JSON.stringify(savedPhotos)) {
+        changes.coverImage = cleanPhotos[0];
+        changes.images = cleanPhotos.slice(1);
+      }
+
+      if (Object.keys(changes).length === 0) {
+        setFormError("Nothing has changed yet.");
+        return;
+      }
+      path = `/api/admin/projects/${existing.id}`;
+      method = "PATCH";
+      body = changes;
+    }
+
+    setSubmitting(true);
+    try {
+      const data = await apiRequest(path, { method, body });
+      const saved = data.project;
+      navigate("/admin/projects", {
+        state: {
+          message: isEditing
+            ? `Saved changes to "${saved.title}" (${saved.status}).`
+            : `Created "${saved.title}" as ${saved.status}.`,
+        },
+      });
+    } catch (error) {
+      setSubmitting(false);
+
+      // The server found problems with specific fields: show them there.
+      const serverErrors = error.fields ?? {};
+      const problemId = firstProblemId(serverErrors, photos);
+      if (problemId) {
+        setErrors(serverErrors);
+        document.getElementById(problemId)?.focus();
+      } else {
+        setFormError(error.message);
+      }
+    }
   }
 
-  const fileInputClass = `${inputClass(Boolean(errors.photos))} file:mr-4 file:border-0 file:bg-obsidian file:px-4 file:py-2 file:text-sm file:text-ivory`;
   const iconButton =
     "inline-flex h-11 w-11 items-center justify-center border border-obsidian/40 transition-colors hover:bg-obsidian hover:text-ivory disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-obsidian";
+  const firstReady = photos.find((photo) => photo.state === "ready");
 
   return (
     <div>
@@ -403,8 +545,13 @@ function ProjectFormBody({ existing }) {
           <FormField
             id="slug"
             label="Web address ending"
+            required={false}
             error={errors.slug}
-            hint={`The project page will be at /gallery/${values.slug || "your-address"}. It is made from the title, but you can change it. Changing it later breaks any links already shared.`}
+            hint={`The project page will be at /gallery/${values.slug || "your-address"}. It is made from the title, but you can change it.${
+              isEditing && existing.status === "published"
+                ? " This project is published, so changing its address breaks any links already shared."
+                : ""
+            }`}
           >
             {(fieldProps) => (
               <input
@@ -462,6 +609,7 @@ function ProjectFormBody({ existing }) {
             id="description"
             label="Short description"
             required={false}
+            error={errors.description}
           >
             {(fieldProps) => (
               <textarea
@@ -476,7 +624,12 @@ function ProjectFormBody({ existing }) {
             )}
           </FormField>
 
-          <FormField id="details" label="More details" required={false}>
+          <FormField
+            id="details"
+            label="More details"
+            required={false}
+            error={errors.details}
+          >
             {(fieldProps) => (
               <textarea
                 {...fieldProps}
@@ -492,6 +645,7 @@ function ProjectFormBody({ existing }) {
             id="location"
             label="Location"
             required={false}
+            error={errors.location}
             hint="Only add this if the customer has agreed to it being shown publicly. Leave it empty otherwise."
           >
             {(fieldProps) => (
@@ -513,8 +667,8 @@ function ProjectFormBody({ existing }) {
           <FormField
             id="photo-input"
             label="Add photos"
-            error={errors.photos}
-            hint={`Choose several at once. JPG, PNG or WebP, up to 5 MB each, up to ${MAX_PHOTOS} photos. The first photo is the cover.`}
+            error={errors.photos ?? errors.images}
+            hint={`Choose several at once. JPG, PNG or WebP, up to 5 MB each, up to ${MAX_PHOTOS} photos. Each photo is uploaded as soon as you choose it. The first photo is the cover.`}
           >
             {(fieldProps) => (
               <input
@@ -523,7 +677,7 @@ function ProjectFormBody({ existing }) {
                 multiple
                 accept="image/jpeg,image/png,image/webp"
                 onChange={handleFilesChange}
-                className={fileInputClass}
+                className={`${inputClass(Boolean(errors.photos ?? errors.images))} file:mr-4 file:border-0 file:bg-obsidian file:px-4 file:py-2 file:text-sm file:text-ivory`}
               />
             )}
           </FormField>
@@ -540,9 +694,7 @@ function ProjectFormBody({ existing }) {
             ref={photoMessageRef}
             role="status"
             tabIndex={-1}
-            className={`border-l-2 border-gold pl-4 text-sm focus:outline-none ${
-              photoMessage ? "" : "sr-only"
-            }`}
+            className={`border-l-2 border-gold pl-4 text-sm focus:outline-none ${photoMessage ? "" : "sr-only"}`}
           >
             {photoMessage}
           </p>
@@ -551,104 +703,126 @@ function ProjectFormBody({ existing }) {
             <ol className="space-y-5">
               {photos.map((photo, index) => (
                 <li key={photo.key} className="border border-obsidian/25 p-4">
-                  <div className="flex flex-col gap-4 sm:flex-row">
-                    <SiteImage
-                      image={{
-                        ...photo,
-                        alt: photo.alt || `Preview of photo ${index + 1}`,
-                      }}
-                      className="h-40 w-full shrink-0 sm:h-32 sm:w-44"
-                      sizes="176px"
-                    />
+                  {photo.state === "uploading" ? (
+                    <p
+                      role="status"
+                      className="flex items-center gap-3 text-sm"
+                    >
+                      <LoaderCircle
+                        size={18}
+                        aria-hidden="true"
+                        className="animate-spin"
+                      />
+                      Uploading {photo.name}...
+                    </p>
+                  ) : (
+                    <div className="flex flex-col gap-4 sm:flex-row">
+                      <SiteImage
+                        image={toImage({
+                          url: photo.url,
+                          alt: photo.alt || `Preview of photo ${index + 1}`,
+                        })}
+                        className="h-40 w-full shrink-0 sm:h-32 sm:w-44"
+                        sizes="176px"
+                      />
 
-                    <div className="min-w-0 flex-1 space-y-4">
-                      <p className="text-sm font-semibold">
-                        {index === 0 ? "Photo 1 (cover)" : `Photo ${index + 1}`}
-                      </p>
+                      <div className="min-w-0 flex-1 space-y-4">
+                        <p className="text-sm font-semibold">
+                          {index === 0
+                            ? "Photo 1 (cover)"
+                            : `Photo ${index + 1}`}
+                        </p>
 
-                      <FormField
-                        id={`alt-${photo.key}`}
-                        label={`Alt text for photo ${index + 1}`}
-                        error={errors.alts[photo.key]}
-                        hint="Describe what the photo shows, for people who cannot see it."
-                      >
-                        {(fieldProps) => (
-                          <input
-                            {...fieldProps}
-                            type="text"
-                            maxLength={200}
-                            value={photo.alt}
-                            onChange={(event) =>
-                              updatePhoto(photo.key, {
-                                alt: event.target.value,
-                              })
-                            }
-                          />
-                        )}
-                      </FormField>
-
-                      <FormField
-                        id={`caption-${photo.key}`}
-                        label={`Caption for photo ${index + 1}`}
-                        required={false}
-                      >
-                        {(fieldProps) => (
-                          <input
-                            {...fieldProps}
-                            type="text"
-                            maxLength={150}
-                            value={photo.caption}
-                            onChange={(event) =>
-                              updatePhoto(photo.key, {
-                                caption: event.target.value,
-                              })
-                            }
-                          />
-                        )}
-                      </FormField>
-
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          id={`photo-${photo.key}-up`}
-                          disabled={index === 0}
-                          onClick={() => movePhoto(index, -1)}
-                          aria-label={`Move photo ${index + 1} up`}
-                          className={iconButton}
+                        <FormField
+                          id={`alt-${photo.key}`}
+                          label={`Alt text for photo ${index + 1}`}
+                          error={errors[photoErrorKey(index, "alt")]}
+                          hint="Describe what the photo shows, for people who cannot see it."
                         >
-                          <ArrowUp size={18} aria-hidden="true" />
-                        </button>
-                        <button
-                          type="button"
-                          id={`photo-${photo.key}-down`}
-                          disabled={index === photos.length - 1}
-                          onClick={() => movePhoto(index, 1)}
-                          aria-label={`Move photo ${index + 1} down`}
-                          className={iconButton}
+                          {(fieldProps) => (
+                            <input
+                              {...fieldProps}
+                              type="text"
+                              maxLength={200}
+                              value={photo.alt}
+                              onChange={(event) =>
+                                updatePhoto(index, { alt: event.target.value })
+                              }
+                            />
+                          )}
+                        </FormField>
+
+                        <FormField
+                          id={`caption-${photo.key}`}
+                          label={`Caption for photo ${index + 1}`}
+                          required={false}
+                          error={errors[photoErrorKey(index, "caption")]}
                         >
-                          <ArrowDown size={18} aria-hidden="true" />
-                        </button>
-                        {index > 0 && (
+                          {(fieldProps) => (
+                            <input
+                              {...fieldProps}
+                              type="text"
+                              maxLength={150}
+                              value={photo.caption}
+                              onChange={(event) =>
+                                updatePhoto(index, {
+                                  caption: event.target.value,
+                                })
+                              }
+                            />
+                          )}
+                        </FormField>
+
+                        {errors[photoErrorKey(index, "url")] && (
+                          <FieldError>
+                            {errors[photoErrorKey(index, "url")]}
+                          </FieldError>
+                        )}
+
+                        <div className="flex flex-wrap gap-2">
                           <button
                             type="button"
-                            onClick={() => makeCover(index)}
-                            aria-label={`Make photo ${index + 1} the cover photo`}
+                            id={`photo-${photo.key}-up`}
+                            disabled={index === 0}
+                            onClick={() => movePhoto(index, -1)}
+                            aria-label={`Move photo ${index + 1} up`}
+                            className={iconButton}
+                          >
+                            <ArrowUp size={18} aria-hidden="true" />
+                          </button>
+                          <button
+                            type="button"
+                            id={`photo-${photo.key}-down`}
+                            disabled={index === photos.length - 1}
+                            onClick={() => movePhoto(index, 1)}
+                            aria-label={`Move photo ${index + 1} down`}
+                            className={iconButton}
+                          >
+                            <ArrowDown size={18} aria-hidden="true" />
+                          </button>
+                          {index > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => makeCover(index)}
+                              aria-label={`Make photo ${index + 1} the cover photo`}
+                              className="btn-outline btn-sm"
+                            >
+                              Make cover
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            id={`remove-${photo.key}`}
+                            onClick={() => removePhoto(index)}
+                            aria-label={`Remove photo ${index + 1}`}
                             className="btn-outline btn-sm"
                           >
-                            Make cover
+                            Remove
                           </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => removePhoto(index)}
-                          aria-label={`Remove photo ${index + 1}`}
-                          className="btn-outline btn-sm"
-                        >
-                          Remove
-                        </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
                 </li>
               ))}
             </ol>
@@ -666,6 +840,7 @@ function ProjectFormBody({ existing }) {
           <FormField
             id="status"
             label="Status"
+            error={errors.status}
             hint="Only published projects appear on the public website."
           >
             {(fieldProps) => (
@@ -725,16 +900,17 @@ function ProjectFormBody({ existing }) {
               </p>
 
               <div className="mt-5 max-w-sm">
-                {photos[0] ? (
+                {firstReady ? (
                   <SiteImage
-                    image={{
-                      ...photos[0],
-                      alt: photos[0].alt || "Preview of the cover photo",
-                    }}
-                    className="aspect-4/3"
+                    image={toImage({
+                      url: firstReady.url,
+                      alt: firstReady.alt || "Preview of the cover photo",
+                    })}
+                    className="aspect-[4/3]"
+                    sizes="384px"
                   />
                 ) : (
-                  <div className="flex aspect-4/3 items-center justify-center bg-stone/20 text-sm">
+                  <div className="flex aspect-[4/3] items-center justify-center bg-stone/20 text-sm">
                     No cover photo yet
                   </div>
                 )}
@@ -762,18 +938,43 @@ function ProjectFormBody({ existing }) {
           )}
         </section>
 
+        {formError && (
+          <div role="alert">
+            <FieldError>{formError}</FieldError>
+          </div>
+        )}
+
         <div className="flex flex-col gap-4 border-t border-obsidian/20 pt-8 sm:flex-row">
-          <button type="submit" className="btn-primary">
-            {isEditing ? "Save changes" : "Create project"}
+          <button
+            type="submit"
+            disabled={submitting || uploadingCount > 0}
+            aria-busy={submitting}
+            className="btn-primary disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {submitting ? (
+              <>
+                <LoaderCircle
+                  size={16}
+                  aria-hidden="true"
+                  className="animate-spin"
+                />
+                Saving...
+              </>
+            ) : isEditing ? (
+              "Save changes"
+            ) : (
+              "Create project"
+            )}
           </button>
           <Link to="/admin/projects" className="btn-outline">
             Cancel
           </Link>
         </div>
-        <p className="text-sm text-obsidian/70">
-          Prototype: saving only changes the mock data for this session. No
-          photo is uploaded.
-        </p>
+        {uploadingCount > 0 && (
+          <p className="text-sm text-obsidian/75">
+            Saving is available once all photos have finished uploading.
+          </p>
+        )}
       </form>
     </div>
   );

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { largeImageUrl } from "../../utils/images";
 
 // Full-screen photo viewer for ONE project's photos.
 //
@@ -109,7 +110,7 @@ export default function ProjectLightbox({
               Later we will point this at a larger optimised version of the photo. */}
           <img
             key={image.src}
-            src={image.src}
+            src={largeImageUrl(image.src)}
             alt={image.alt}
             decoding="async"
             className="max-h-[calc(100dvh-10rem)] max-w-full object-contain"

@@ -1,6 +1,7 @@
 import { useState } from "react";
+import { resizedUrl, srcSetFor } from "../../utils/images";
 
-// Renders one image object from the data files: { src, alt, caption, isPlaceholder }.
+// Renders one image object: { src, alt, caption, isPlaceholder }.
 //
 // IMPORTANT: this component fills its parent box, so the caller must give it a
 // shape, for example className="aspect-[4/3]" or "aspect-video". Reserving the
@@ -11,7 +12,8 @@ import { useState } from "react";
 //   className     sizing/shape classes for the box, e.g. "aspect-[4/3]"
 //   loading       "lazy" (default) or "eager" for images at the top of the page
 //   fetchPriority "high" for the first hero image, otherwise leave as "auto"
-//   sizes         optional hint used later when we have responsive image variants
+//   sizes         how wide the image is shown, e.g. "(min-width: 1024px) 33vw, 100vw".
+//                 The browser uses it to pick the smallest suitable version of a hosted photo.
 //   fit           "cover" (default, fills the box) or "contain" (shows the whole image)
 export default function SiteImage({
   image,
@@ -31,6 +33,9 @@ export default function SiteImage({
     console.warn("SiteImage: every image needs alt text.", image);
   }
 
+  // Hosted photos come in several widths. Local placeholder photos have no srcset.
+  const srcSet = image ? srcSetFor(image.src) : undefined;
+
   return (
     <div className={`relative overflow-hidden bg-stone/20 ${className}`}>
       {failed ? (
@@ -43,11 +48,12 @@ export default function SiteImage({
         </div>
       ) : (
         <img
-          src={image.src}
+          src={resizedUrl(image.src, 800)}
+          srcSet={srcSet}
+          sizes={srcSet ? (sizes ?? "100vw") : sizes}
           alt={alt}
           loading={loading}
           fetchPriority={fetchPriority}
-          sizes={sizes}
           decoding="async"
           onError={() => setFailedSrc(image.src)}
           className={`absolute inset-0 h-full w-full ${

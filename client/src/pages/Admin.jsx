@@ -9,6 +9,8 @@ import AdminReviews from "../components/admin/AdminReviews";
 import AdminEnquiries from "../components/admin/AdminEnquiries";
 import AdminCategories from "../components/admin/AdminCategories";
 import AdminSettings from "../components/admin/AdminSettings";
+import AdminProjects from "../components/admin/AdminProjects";
+import AdminProjectForm from "../components/admin/AdminProjectForm";
 import usePageMeta from "../hooks/usePageMeta";
 
 // TEMPORARY: each screen is replaced by the real one in the next steps.
@@ -63,10 +65,9 @@ function AdminGate() {
     <Routes>
       <Route element={<AdminLayout />}>
         <Route index element={<AdminOverview />} />
-        <Route
-          path="projects/*"
-          element={<AdminSectionStub title="Projects" />}
-        />
+        <Route path="projects" element={<AdminProjects />} />
+        <Route path="projects/new" element={<AdminProjectForm />} />
+        <Route path="projects/:id" element={<AdminProjectForm />} />
         <Route path="categories" element={<AdminCategories />} />
         <Route path="reviews" element={<AdminReviews />} />
         <Route path="enquiries" element={<AdminEnquiries />} />
