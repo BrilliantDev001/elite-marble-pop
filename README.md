@@ -62,7 +62,11 @@ The frontend has one optional, public setting (`client/.env.example`).
 
 ## Before launch
 
-- Run `npm run seed -- remove-samples` and add real projects and categories in the admin.
+- Edit the sample projects into real ones (new title, text and photos), then tick "This is now a real project"
+  on each. That is only allowed once every placeholder photo has been replaced. Run
+  `npm run seed -- remove-samples` for any sample projects that are left over. It never touches projects you
+  have marked as real, or categories.
+- Replace the placeholder photo on each category in Admin > Categories.
 - Replace the placeholder photos in `client/public/placeholders/` (hero, service pages, About) with real
   ones, and update their alt text in `client/src/data/services.js`, `heroSlides.js` and `siteConfig.js`.
   These photos are not editable in the admin: changing them needs a rebuild.

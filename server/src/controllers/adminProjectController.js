@@ -147,6 +147,11 @@ export async function updateProject(req, res) {
   }
 
   project.set(changes);
+
+  // A sample project can only become a real one once none of its photos is a placeholder.
+  if (changes.isSample === false && [project.coverImage, ...project.images].some((photo) => photo.url.startsWith("/placeholders/"))) {
+    throw fieldError(409, "isSample", "Replace every placeholder photo with a real photo before marking this project as real.");
+  }
   await project.save(); // runs the model's rules as well
 
   // Photos that were taken off this project are deleted from ImageKit.

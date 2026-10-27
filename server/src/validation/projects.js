@@ -148,4 +148,11 @@ export const createProjectSchema = z.object({
 });
 
 // EDITING: send only the fields that changed (or all of them).
-export const updateProjectSchema = z.object(fields).partial();
+export const updateProjectSchema = z
+  .object({
+    ...fields,
+    // The ONLY change allowed to this flag: marking a sample project as a real one.
+    // A project can never be turned into a sample through the API.
+    isSample: z.literal(false, { message: "A sample project can only be changed to a real project." }),
+  })
+  .partial();

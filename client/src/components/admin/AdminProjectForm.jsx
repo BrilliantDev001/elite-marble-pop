@@ -40,6 +40,7 @@ function firstProblemId(errors, photos) {
     ["location", "location"],
     ["photos", "photo-input"],
     ["images", "photo-input"],
+    ["isSample", "mark-real"],
     ["status", "status"],
   ];
   for (const [key, id] of fields) if (errors[key]) return id;
@@ -190,6 +191,7 @@ function ProjectFormBody({ existing, categories }) {
   // Once the web address has been typed by hand (or the project already exists), we stop
   // rewriting it from the title. An existing project keeps its address unless changed on purpose.
   const [slugEdited, setSlugEdited] = useState(isEditing);
+  const [markReal, setMarkReal] = useState(false); // for sample projects: "this is now a real project"
   const [errors, setErrors] = useState({});
   const [formError, setFormError] = useState("");
   const [fileProblems, setFileProblems] = useState([]);
@@ -449,6 +451,7 @@ function ProjectFormBody({ existing, categories }) {
       if (values.featured !== existing.featured)
         changes.featured = values.featured;
       if (values.status !== existing.status) changes.status = values.status;
+      if (existing.isSample && markReal) changes.isSample = false;
 
       // Photos: if anything about them changed (a new photo, the order, alt text or captions),
       // send the whole set. The server checks only the photos that are new.
@@ -872,6 +875,37 @@ function ProjectFormBody({ existing, categories }) {
             </label>
           </div>
         </section>
+
+        {/* ---------- A sample project: turning it into a real one ---------- */}
+        {isEditing && existing.isSample && (
+          <section className="space-y-4 border border-obsidian/25 p-6">
+            <h2 className="text-3xl font-medium">Sample project</h2>
+            <p className="text-sm text-obsidian/85">
+              This is a sample project, so the website labels it "Sample project, not real ELITE work".
+              Edit the title, text, category and photos so it describes real work. When it does, tick the
+              box below to remove the label. This is only possible once every placeholder photo has
+              been replaced with a real one.
+            </p>
+            <div className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                id="mark-real"
+                checked={markReal}
+                onChange={(event) => {
+                  setMarkReal(event.target.checked);
+                  setErrors((current) => ({ ...current, isSample: undefined }));
+                }}
+                aria-describedby={errors.isSample ? "mark-real-error" : undefined}
+                aria-invalid={errors.isSample ? true : undefined}
+                className="mt-1 h-5 w-5 shrink-0 accent-obsidian"
+              />
+              <label htmlFor="mark-real" className="text-sm">
+                This is now a real project. Remove the "sample" label.
+              </label>
+            </div>
+            {errors.isSample && <FieldError id="mark-real-error">{errors.isSample}</FieldError>}
+          </section>
+        )}
 
         {/* ---------- Preview ---------- */}
         <section>
